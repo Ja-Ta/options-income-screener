@@ -269,3 +269,32 @@ def compute_technical_features(price_data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     return features
+
+# Alias for compatibility with different naming conventions
+def calculate_technical_indicators(prices: List[float]) -> Dict[str, Any]:
+    """
+    Calculate technical indicators from price list.
+    
+    Alias for compute_technical_features for backward compatibility.
+    """
+    # Create a minimal price_data dict from the prices list
+    if not prices:
+        return {}
+    
+    price_data = {
+        "close": prices[-1] if prices else None,
+        "prices": prices
+    }
+    
+    # Compute all technical features
+    features = compute_technical_features(price_data)
+    
+    # Also compute SMAs and HVs directly from prices
+    smas = compute_smas(prices)
+    hvs = compute_hvs(prices)
+    
+    # Merge all results
+    features.update(smas)
+    features.update(hvs)
+    
+    return features

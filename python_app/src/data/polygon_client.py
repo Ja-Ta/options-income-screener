@@ -321,3 +321,19 @@ class PolygonClient:
 
         premium = intrinsic + max(0.01, atm_premium)
         return round(premium, 2)
+    def get_stock_snapshot(self, symbol: str, asof: date = None) -> Optional[Dict[str, Any]]:
+        """
+        Get stock price snapshot for a single symbol.
+        Alias for get_daily_prices for backward compatibility.
+        """
+        asof = asof or date.today()
+        prices = self.get_daily_prices([symbol], asof)
+        return prices.get(symbol) if prices else None
+
+    def get_options_chain(self, symbol: str, asof: date = None) -> List[Dict[str, Any]]:
+        """
+        Get options chain for a symbol.
+        Alias for get_option_chain for backward compatibility.
+        """
+        asof = asof or date.today()
+        return self.get_option_chain(symbol, asof)
