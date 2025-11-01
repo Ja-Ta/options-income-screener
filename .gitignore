@@ -28,7 +28,8 @@ data/logs/
 
 # Environment & Secrets
 .env
-.env.*
+.env.local
+.env.*.local
 *.key
 *.pem
 
@@ -47,5 +48,5 @@ Desktop.ini
 # Testing
 .coverage
 htmlcov/
-test_*.py
-*.test.py
+.pytest_cache/
+__pycache__/
