@@ -1,0 +1,14 @@
+[Unit]
+Description=Options Screener Daily Run (one-shot)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=app
+Group=app
+EnvironmentFile=/etc/options-income-screener/.env
+WorkingDirectory=/opt/options-income-screener/python_app
+ExecStart=/opt/options-income-screener/python_app/venv/bin/python -m src.pipelines.daily_job
+Nice=5
+IOSchedulingClass=best-effort

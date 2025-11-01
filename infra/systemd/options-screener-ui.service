@@ -1,0 +1,16 @@
+[Unit]
+Description=Options Screener Node UI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=app
+Group=app
+Environment=NODE_ENV=production
+WorkingDirectory=/opt/options-income-screener/node_ui
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

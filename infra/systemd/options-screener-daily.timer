@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Options Screener once per day (18:05 local)
+
+[Timer]
+OnCalendar=*-*-* 18:05:00
+Persistent=true
+Unit=options-screener-daily.service
+
+[Install]
+WantedBy=timers.target

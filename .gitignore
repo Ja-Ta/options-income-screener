@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.python-version
+python_app/venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_ui/node_modules/
+node_ui/.next/
+node_ui/build/
+npm-debug.log
+*.log
+
+# Data & Database
+data/*.db
+data/*.db-*
+data/backups/
+data/logs/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Environment & Secrets
+.env
+.env.*
+*.key
+*.pem
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Testing
+.coverage
+htmlcov/
+test_*.py
+*.test.py

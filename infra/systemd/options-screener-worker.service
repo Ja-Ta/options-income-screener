@@ -1,0 +1,16 @@
+[Unit]
+Description=Options Screener Worker (APScheduler inside)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=app
+Group=app
+EnvironmentFile=/etc/options-income-screener/.env
+WorkingDirectory=/opt/options-income-screener/python_app
+ExecStart=/opt/options-income-screener/python_app/venv/bin/python -m src.services.scheduler
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
