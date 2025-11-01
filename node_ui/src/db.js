@@ -1,0 +1,306 @@
+/**
+ * Database helper module for SQLite operations
+ * Read-only access to screening results
+ */
+
+import Database from 'better-sqlite3';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Database path configuration
+const DB_PATH = process.env.DB_PATH || path.resolve(__dirname, '../../data/screener.db');
+
+class DatabaseService {
+  constructor() {
+    this.db = null;
+    this.connect();
+  }
+
+  connect() {
+    try {
+      this.db = new Database(DB_PATH, {
+        readonly: true,
+        fileMustExist: false
+      });
+      console.log(`✅ Connected to database: ${DB_PATH}`);
+
+      // Enable WAL mode for better concurrent access
+      this.db.pragma('journal_mode = WAL');
+
+    } catch (error) {
+      console.error(`❌ Database connection failed: ${error.message}`);
+      this.db = null;
+    }
+  }
+
+  isConnected() {
+    return this.db !== null;
+  }
+
+  /**
+   * Get the latest date with picks
+   */
+  getLatestDate() {
+    if (!this.db) throw new Error('Database not connected');
+
+    const row = this.db.prepare('SELECT MAX(asof) as latest FROM picks').get();
+    return row?.latest || null;
+  }
+
+  /**
+   * Get all picks for a specific date
+   */
+  getPicksByDate(date) {
+    if (!this.db) throw new Error('Database not connected');
+
+    return this.db.prepare(`
+      SELECT p.*, r.summary as rationale
+      FROM picks p
+      LEFT JOIN rationales r ON p.id = r.pick_id
+      WHERE p.asof = ?
+      ORDER BY p.score DESC
+    `).all(date);
+  }
+
+  /**
+   * Get filtered picks with pagination
+   */
+  getFilteredPicks(filters = {}) {
+    if (!this.db) throw new Error('Database not connected');
+
+    const {
+      date,
+      strategy,
+      minScore = 0,
+      minIVR = 0,
+      minROI = 0,
+      limit = 100,
+      offset = 0
+    } = filters;
+
+    let query = `
+      SELECT p.*, r.summary as rationale
+      FROM picks p
+      LEFT JOIN rationales r ON p.id = r.pick_id
+      WHERE 1=1
+    `;
+
+    const params = [];
+
+    if (date) {
+      query += ` AND p.asof = ?`;
+      params.push(date);
+    }
+
+    if (strategy) {
+      query += ` AND p.strategy = ?`;
+      params.push(strategy);
+    }
+
+    query += ` AND p.score >= ? AND p.iv_rank >= ? AND p.roi_30d >= ?`;
+    params.push(minScore, minIVR, minROI);
+
+    query += ` ORDER BY p.score DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+
+    return this.db.prepare(query).all(...params);
+  }
+
+  /**
+   * Get a single pick by ID
+   */
+  getPickById(id) {
+    if (!this.db) throw new Error('Database not connected');
+
+    const pick = this.db.prepare(`
+      SELECT * FROM picks WHERE id = ?
+    `).get(id);
+
+    if (!pick) return null;
+
+    // Get rationale if available
+    const rationale = this.db.prepare(`
+      SELECT summary FROM rationales
+      WHERE pick_id = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).get(id);
+
+    return {
+      ...pick,
+      rationale: rationale?.summary || null
+    };
+  }
+
+  /**
+   * Get top picks across all dates
+   */
+  getTopPicks(limit = 10) {
+    if (!this.db) throw new Error('Database not connected');
+
+    return this.db.prepare(`
+      SELECT p.*, r.summary as rationale
+      FROM picks p
+      LEFT JOIN rationales r ON p.id = r.pick_id
+      ORDER BY p.score DESC
+      LIMIT ?
+    `).all(limit);
+  }
+
+  /**
+   * Get daily summary statistics
+   */
+  getDailySummary(date) {
+    if (!this.db) throw new Error('Database not connected');
+
+    // Count by strategy
+    const counts = this.db.prepare(`
+      SELECT strategy, COUNT(*) as count, AVG(score) as avg_score
+      FROM picks
+      WHERE asof = ?
+      GROUP BY strategy
+    `).all(date);
+
+    // Get top performers
+    const topPicks = this.db.prepare(`
+      SELECT symbol, strategy, roi_30d, score
+      FROM picks
+      WHERE asof = ?
+      ORDER BY score DESC
+      LIMIT 5
+    `).all(date);
+
+    // Get overall stats
+    const stats = this.db.prepare(`
+      SELECT
+        COUNT(*) as total_picks,
+        AVG(score) as avg_score,
+        AVG(roi_30d) as avg_roi,
+        AVG(iv_rank) as avg_ivr
+      FROM picks
+      WHERE asof = ?
+    `).get(date);
+
+    return {
+      date,
+      counts,
+      topPicks,
+      stats
+    };
+  }
+
+  /**
+   * Get historical performance data
+   */
+  getHistoricalData(days = 30) {
+    if (!this.db) throw new Error('Database not connected');
+
+    return this.db.prepare(`
+      SELECT
+        asof as date,
+        strategy,
+        COUNT(*) as count,
+        AVG(score) as avg_score,
+        AVG(roi_30d) as avg_roi
+      FROM picks
+      WHERE asof >= date('now', '-' || ? || ' days')
+      GROUP BY asof, strategy
+      ORDER BY asof DESC
+    `).all(days);
+  }
+
+  /**
+   * Get available dates with picks
+   */
+  getAvailableDates() {
+    if (!this.db) throw new Error('Database not connected');
+
+    return this.db.prepare(`
+      SELECT DISTINCT asof as date, COUNT(*) as count
+      FROM picks
+      GROUP BY asof
+      ORDER BY asof DESC
+    `).all();
+  }
+
+  /**
+   * Get symbol performance history
+   */
+  getSymbolHistory(symbol) {
+    if (!this.db) throw new Error('Database not connected');
+
+    return this.db.prepare(`
+      SELECT *
+      FROM picks
+      WHERE symbol = ?
+      ORDER BY asof DESC
+      LIMIT 30
+    `).all(symbol);
+  }
+
+  /**
+   * Search picks by symbol pattern
+   */
+  searchBySymbol(pattern) {
+    if (!this.db) throw new Error('Database not connected');
+
+    return this.db.prepare(`
+      SELECT p.*, r.summary as rationale
+      FROM picks p
+      LEFT JOIN rationales r ON p.id = r.pick_id
+      WHERE p.symbol LIKE ?
+      ORDER BY p.asof DESC, p.score DESC
+      LIMIT 50
+    `).all(`%${pattern}%`);
+  }
+
+  /**
+   * Get aggregate statistics
+   */
+  getStats() {
+    if (!this.db) throw new Error('Database not connected');
+
+    const overall = this.db.prepare(`
+      SELECT
+        COUNT(*) as total_picks,
+        COUNT(DISTINCT symbol) as unique_symbols,
+        COUNT(DISTINCT asof) as days_with_picks,
+        AVG(score) as avg_score,
+        AVG(roi_30d) as avg_roi,
+        AVG(iv_rank) as avg_ivr
+      FROM picks
+    `).get();
+
+    const byStrategy = this.db.prepare(`
+      SELECT
+        strategy,
+        COUNT(*) as count,
+        AVG(score) as avg_score,
+        AVG(roi_30d) as avg_roi,
+        AVG(iv_rank) as avg_ivr
+      FROM picks
+      GROUP BY strategy
+    `).all();
+
+    return {
+      overall,
+      byStrategy
+    };
+  }
+
+  /**
+   * Close database connection
+   */
+  close() {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+    }
+  }
+}
+
+// Export singleton instance
+export default new DatabaseService();

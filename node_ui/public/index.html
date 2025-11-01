@@ -1,20 +1,339 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <title>Options Income Screener</title>
-    <style>body{font-family:system-ui,Arial;margin:2rem} table{border-collapse:collapse} td,th{border:1px solid #ccc;padding:.4rem}</style>
-  </head>
-  <body>
-    <h1>Options Income Screener</h1>
-    <div id="app"></div>
-    <script>
-      async function load() {
-        const latest = await fetch('/api/latest-date').then(r=>r.json());
-        document.getElementById('app').innerHTML = '<p>Latest date: '+(latest.latest||'(none)')+'</p>';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Options Income Screener Dashboard</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .controls {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #666;
+    }
+    select, input, button {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .results {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th {
+      background: #f0f0f0;
+      font-weight: 600;
+      text-align: left;
+      padding: 12px;
+      border-bottom: 2px solid #ddd;
+    }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee;
+    }
+    tr:hover {
+      background: #f9f9f9;
+    }
+    .strategy-CC {
+      background: #e3f2fd;
+      color: #1565c0;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .strategy-CSP {
+      background: #fff3e0;
+      color: #e65100;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .score-high { color: #2e7d32; font-weight: 600; }
+    .score-med { color: #f57c00; }
+    .score-low { color: #c62828; }
+    .loading { text-align: center; padding: 40px; color: #666; }
+    .error { background: #ffebee; color: #c62828; padding: 15px; border-radius: 4px; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #333;
+    }
+    .stat-label {
+      color: #666;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📈 Options Income Screener Dashboard</h1>
+
+    <div class="controls">
+      <div class="control-group">
+        <label>Date</label>
+        <select id="dateSelect">
+          <option value="latest">Latest</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Strategy</label>
+        <select id="strategySelect">
+          <option value="">All</option>
+          <option value="CC">Covered Calls</option>
+          <option value="CSP">Cash-Secured Puts</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Min Score</label>
+        <input type="number" id="minScore" value="0" min="0" max="1" step="0.1">
+      </div>
+
+      <div class="control-group">
+        <label>Min IV Rank</label>
+        <input type="number" id="minIVR" value="40" min="0" max="100" step="5">
+      </div>
+
+      <button onclick="loadPicks()">Load Picks</button>
+      <button onclick="loadStats()">View Stats</button>
+    </div>
+
+    <div class="stats-grid" id="stats" style="display:none;"></div>
+
+    <div class="results">
+      <div id="loading" class="loading">Loading...</div>
+      <div id="error" class="error" style="display:none;"></div>
+      <div id="content"></div>
+    </div>
+  </div>
+
+  <script>
+    // Load dates on startup
+    async function loadDates() {
+      try {
+        const resp = await fetch('/api/stats/dates');
+        const data = await resp.json();
+        if (data.success) {
+          const select = document.getElementById('dateSelect');
+          select.innerHTML = '<option value="latest">Latest</option>';
+          data.dates.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.date;
+            opt.textContent = `${d.date} (${d.count} picks)`;
+            select.appendChild(opt);
+          });
+        }
+      } catch (e) {
+        console.error('Failed to load dates:', e);
       }
-      load();
-    </script>
-  </body>
+    }
+
+    // Load picks
+    async function loadPicks() {
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const content = document.getElementById('content');
+      const stats = document.getElementById('stats');
+
+      loading.style.display = 'block';
+      error.style.display = 'none';
+      content.innerHTML = '';
+      stats.style.display = 'none';
+
+      try {
+        const date = document.getElementById('dateSelect').value;
+        const strategy = document.getElementById('strategySelect').value;
+        const minScore = document.getElementById('minScore').value;
+        const minIVR = document.getElementById('minIVR').value;
+
+        let url = date === 'latest' ? '/api/picks/latest' :
+          `/api/picks?date=${date}&strategy=${strategy}&minScore=${minScore}&minIVR=${minIVR}`;
+
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        loading.style.display = 'none';
+
+        if (data.success) {
+          displayPicks(data.picks);
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (e) {
+        loading.style.display = 'none';
+        error.style.display = 'block';
+        error.textContent = `Error: ${e.message}`;
+      }
+    }
+
+    // Display picks table
+    function displayPicks(picks) {
+      const content = document.getElementById('content');
+
+      if (picks.length === 0) {
+        content.innerHTML = '<p>No picks found</p>';
+        return;
+      }
+
+      let html = `
+        <h2>Found ${picks.length} Picks</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Strategy</th>
+              <th>Strike</th>
+              <th>Expiry</th>
+              <th>Premium</th>
+              <th>ROI (30d)</th>
+              <th>IV Rank</th>
+              <th>Score</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      picks.forEach(p => {
+        const scoreClass = p.score >= 0.7 ? 'score-high' :
+                          p.score >= 0.5 ? 'score-med' : 'score-low';
+        html += `
+          <tr>
+            <td><strong>${p.symbol}</strong></td>
+            <td><span class="strategy-${p.strategy}">${p.strategy}</span></td>
+            <td>$${p.strike}</td>
+            <td>${p.expiry}</td>
+            <td>$${p.premium.toFixed(2)}</td>
+            <td>${(p.roi_30d * 100).toFixed(2)}%</td>
+            <td>${p.iv_rank.toFixed(0)}%</td>
+            <td class="${scoreClass}">${p.score.toFixed(2)}</td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      content.innerHTML = html;
+    }
+
+    // Load statistics
+    async function loadStats() {
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const content = document.getElementById('content');
+      const stats = document.getElementById('stats');
+
+      loading.style.display = 'block';
+      error.style.display = 'none';
+
+      try {
+        const resp = await fetch('/api/stats');
+        const data = await resp.json();
+
+        loading.style.display = 'none';
+
+        if (data.success) {
+          displayStats(data.stats);
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (e) {
+        loading.style.display = 'none';
+        error.style.display = 'block';
+        error.textContent = `Error: ${e.message}`;
+      }
+    }
+
+    // Display statistics
+    function displayStats(statsData) {
+      const stats = document.getElementById('stats');
+      const content = document.getElementById('content');
+
+      stats.style.display = 'grid';
+      content.innerHTML = '';
+
+      const o = statsData.overall;
+      stats.innerHTML = `
+        <div class="stat-card">
+          <div class="stat-value">${o.total_picks}</div>
+          <div class="stat-label">Total Picks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${o.unique_symbols}</div>
+          <div class="stat-label">Unique Symbols</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${o.days_with_picks}</div>
+          <div class="stat-label">Days Tracked</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${(o.avg_roi * 100).toFixed(2)}%</div>
+          <div class="stat-label">Avg ROI</div>
+        </div>
+      `;
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadDates();
+      loadPicks();
+    });
+  </script>
+</body>
 </html>

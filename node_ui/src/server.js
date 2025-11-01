@@ -1,65 +1,143 @@
+/**
+ * Options Income Screener API Server
+ * Provides REST endpoints for accessing screening results
+ */
+
 import express from 'express';
 import cors from 'cors';
-import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+// Import route modules
+import picksRoutes from './routes/picks.js';
+import statsRoutes from './routes/stats.js';
+import symbolsRoutes from './routes/symbols.js';
+import db from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Initialize Express app
 const app = express();
+
+// Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Adjust path as needed in prod
-const DB_PATH = process.env.DB_PATH || path.resolve(__dirname, '../../data/screener.db');
-let db;
-try {
-  db = new Database(DB_PATH, { readonly: true });
-} catch (e) {
-  console.warn('DB open failed:', e.message);
-}
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
 
-// static UI (if you later build a front-end)
+// Static files (for future frontend)
 app.use(express.static(path.resolve(__dirname, '../public')));
 
-app.get('/api/healthz', (req, res) => res.json({ ok: true }));
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  const isDbConnected = db.isConnected();
+  const status = isDbConnected ? 'healthy' : 'unhealthy';
 
-app.get('/api/latest-date', (req, res) => {
-  try {
-    const row = db.prepare('SELECT MAX(asof) as latest FROM picks').get();
-    res.json(row || { latest: null });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  res.status(isDbConnected ? 200 : 503).json({
+    status,
+    service: 'Options Income Screener API',
+    version: '1.0.0',
+    database: isDbConnected ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
+  });
 });
 
-app.get('/api/picks', (req, res) => {
-  const { date, strategy, minScore = 0, minIVR = 0, minROI = 0 } = req.query;
-  try {
-    let q = `SELECT * FROM picks WHERE 1=1`;
-    const params = {};
-    if (date) { q += ` AND asof=@date`; params.date = date; }
-    if (strategy) { q += ` AND strategy=@strategy`; params.strategy = strategy; }
-    q += ` AND (score >= @minScore) AND (iv_rank >= @minIVR) AND (roi_30d >= @minROI)`;
-    q += ` ORDER BY score DESC LIMIT 500`;
-    const rows = db.prepare(q).all({ ...params, minScore: Number(minScore), minIVR: Number(minIVR), minROI: Number(minROI) });
-    res.json(rows);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+// API Routes
+app.use('/api/picks', picksRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/symbols', symbolsRoutes);
+
+// API documentation endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    name: 'Options Income Screener API',
+    version: '1.0.0',
+    endpoints: {
+      health: {
+        GET: '/api/health - Service health check'
+      },
+      picks: {
+        GET: '/api/picks - Get filtered picks',
+        'GET /latest': '/api/picks/latest - Get picks from most recent date',
+        'GET /top': '/api/picks/top - Get top picks across all dates',
+        'GET /date/:date': '/api/picks/date/:date - Get picks for specific date',
+        'GET /:id': '/api/picks/:id - Get single pick by ID'
+      },
+      stats: {
+        GET: '/api/stats - Get overall statistics',
+        'GET /daily/:date': '/api/stats/daily/:date - Get daily summary',
+        'GET /history': '/api/stats/history - Get historical performance',
+        'GET /dates': '/api/stats/dates - Get available dates',
+        'GET /latest-date': '/api/stats/latest-date - Get latest date'
+      },
+      symbols: {
+        'GET /search': '/api/symbols/search?q=AAPL - Search picks by symbol',
+        'GET /:symbol/history': '/api/symbols/:symbol/history - Get symbol history'
+      }
+    },
+    queryParameters: {
+      picks: {
+        date: 'YYYY-MM-DD format',
+        strategy: 'CC or CSP',
+        minScore: 'Minimum score (0-1)',
+        minIVR: 'Minimum IV Rank (0-100)',
+        minROI: 'Minimum ROI (decimal)',
+        limit: 'Max results (default 100)',
+        offset: 'Pagination offset'
+      }
+    }
+  });
 });
 
-app.get('/api/pick/:id', (req, res) => {
-  try {
-    const pick = db.prepare('SELECT * FROM picks WHERE id=?').get(req.params.id);
-    if (!pick) return res.status(404).json({ error: 'not found' });
-    const rationale = db.prepare('SELECT summary FROM rationales WHERE pick_id=? ORDER BY created_at DESC LIMIT 1').get(req.params.id);
-    res.json({ pick, rationale: rationale?.summary || null });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Endpoint not found',
+    path: req.path
+  });
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({
+    success: false,
+    error: 'Internal server error',
+    message: err.message
+  });
+});
+
+// Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`UI listening on http://localhost:${PORT}`));
+const HOST = process.env.HOST || 'localhost';
+
+app.listen(PORT, HOST, () => {
+  console.log('================================================');
+  console.log('   Options Income Screener API Server');
+  console.log('================================================');
+  console.log(`   Server:   http://${HOST}:${PORT}`);
+  console.log(`   API Docs: http://${HOST}:${PORT}/api`);
+  console.log(`   Health:   http://${HOST}:${PORT}/api/health`);
+  console.log(`   Database: ${db.isConnected() ? '✅ Connected' : '❌ Disconnected'}`);
+  console.log('================================================');
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\n🛑 Shutting down gracefully...');
+  db.close();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n🛑 Shutting down gracefully...');
+  db.close();
+  process.exit(0);
+});
