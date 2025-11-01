@@ -38,10 +38,11 @@ class PolygonClient:
 
         if self.use_mock:
             self.logger.info("Polygon client initialized in MOCK mode")
+            self.real_client = None
         else:
             self.logger.info("Polygon client initialized in PRODUCTION mode")
-            self.session = requests.Session()
-            # Add retry logic here in production
+            from .polygon_api_impl import PolygonAPIImpl
+            self.real_client = PolygonAPIImpl(api_key)
 
     def get_universe(self) -> List[str]:
         """
@@ -83,8 +84,8 @@ class PolygonClient:
         if self.use_mock:
             return self._mock_daily_prices(symbols, asof)
 
-        # Production implementation would call Polygon API here
-        raise NotImplementedError("Production Polygon API not yet implemented")
+        # Use real Polygon API client
+        return self.real_client.get_daily_prices(symbols, asof)
 
     def get_option_chain(self, symbol: str, asof: date) -> List[Dict[str, Any]]:
         """
@@ -102,8 +103,8 @@ class PolygonClient:
         if self.use_mock:
             return self._mock_option_chain(symbol, asof)
 
-        # Production implementation would call Polygon API here
-        raise NotImplementedError("Production Polygon API not yet implemented")
+        # Use real Polygon API client
+        return self.real_client.get_option_chain(symbol, asof)
 
     def get_earnings(self, symbol: str) -> Optional[date]:
         """
@@ -324,11 +325,15 @@ class PolygonClient:
     def get_stock_snapshot(self, symbol: str, asof: date = None) -> Optional[Dict[str, Any]]:
         """
         Get stock price snapshot for a single symbol.
-        Alias for get_daily_prices for backward compatibility.
         """
         asof = asof or date.today()
-        prices = self.get_daily_prices([symbol], asof)
-        return prices.get(symbol) if prices else None
+
+        if self.use_mock:
+            prices = self.get_daily_prices([symbol], asof)
+            return prices.get(symbol) if prices else None
+
+        # Use real Polygon API client
+        return self.real_client.get_stock_snapshot(symbol, asof)
 
     def get_options_chain(self, symbol: str, asof: date = None) -> List[Dict[str, Any]]:
         """

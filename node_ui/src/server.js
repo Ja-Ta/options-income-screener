@@ -116,7 +116,7 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || 'localhost';
+const HOST = process.env.HOST || '0.0.0.0';  // Bind to all interfaces for external access
 
 app.listen(PORT, HOST, () => {
   console.log('================================================');
@@ -126,6 +126,9 @@ app.listen(PORT, HOST, () => {
   console.log(`   API Docs: http://${HOST}:${PORT}/api`);
   console.log(`   Health:   http://${HOST}:${PORT}/api/health`);
   console.log(`   Database: ${db.isConnected() ? '✅ Connected' : '❌ Disconnected'}`);
+  console.log('================================================');
+  console.log('\n   Access from external IP:');
+  console.log(`   http://YOUR_DROPLET_IP:${PORT}`);
   console.log('================================================');
 });
 

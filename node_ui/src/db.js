@@ -46,7 +46,7 @@ class DatabaseService {
   getLatestDate() {
     if (!this.db) throw new Error('Database not connected');
 
-    const row = this.db.prepare('SELECT MAX(asof) as latest FROM picks').get();
+    const row = this.db.prepare('SELECT MAX(date) as latest FROM picks').get();
     return row?.latest || null;
   }
 
@@ -60,7 +60,7 @@ class DatabaseService {
       SELECT p.*, r.summary as rationale
       FROM picks p
       LEFT JOIN rationales r ON p.id = r.pick_id
-      WHERE p.asof = ?
+      WHERE p.date = ?
       ORDER BY p.score DESC
     `).all(date);
   }
@@ -91,7 +91,7 @@ class DatabaseService {
     const params = [];
 
     if (date) {
-      query += ` AND p.asof = ?`;
+      query += ` AND p.date = ?`;
       params.push(date);
     }
 
@@ -160,7 +160,7 @@ class DatabaseService {
     const counts = this.db.prepare(`
       SELECT strategy, COUNT(*) as count, AVG(score) as avg_score
       FROM picks
-      WHERE asof = ?
+      WHERE date = ?
       GROUP BY strategy
     `).all(date);
 
@@ -168,7 +168,7 @@ class DatabaseService {
     const topPicks = this.db.prepare(`
       SELECT symbol, strategy, roi_30d, score
       FROM picks
-      WHERE asof = ?
+      WHERE date = ?
       ORDER BY score DESC
       LIMIT 5
     `).all(date);
@@ -181,7 +181,7 @@ class DatabaseService {
         AVG(roi_30d) as avg_roi,
         AVG(iv_rank) as avg_ivr
       FROM picks
-      WHERE asof = ?
+      WHERE date = ?
     `).get(date);
 
     return {
@@ -200,15 +200,15 @@ class DatabaseService {
 
     return this.db.prepare(`
       SELECT
-        asof as date,
+        date as date,
         strategy,
         COUNT(*) as count,
         AVG(score) as avg_score,
         AVG(roi_30d) as avg_roi
       FROM picks
-      WHERE asof >= date('now', '-' || ? || ' days')
-      GROUP BY asof, strategy
-      ORDER BY asof DESC
+      WHERE date >= date('now', '-' || ? || ' days')
+      GROUP BY date, strategy
+      ORDER BY date DESC
     `).all(days);
   }
 
@@ -219,10 +219,10 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not connected');
 
     return this.db.prepare(`
-      SELECT DISTINCT asof as date, COUNT(*) as count
+      SELECT DISTINCT date as date, COUNT(*) as count
       FROM picks
-      GROUP BY asof
-      ORDER BY asof DESC
+      GROUP BY date
+      ORDER BY date DESC
     `).all();
   }
 
@@ -236,7 +236,7 @@ class DatabaseService {
       SELECT *
       FROM picks
       WHERE symbol = ?
-      ORDER BY asof DESC
+      ORDER BY date DESC
       LIMIT 30
     `).all(symbol);
   }
@@ -252,7 +252,7 @@ class DatabaseService {
       FROM picks p
       LEFT JOIN rationales r ON p.id = r.pick_id
       WHERE p.symbol LIKE ?
-      ORDER BY p.asof DESC, p.score DESC
+      ORDER BY p.date DESC, p.score DESC
       LIMIT 50
     `).all(`%${pattern}%`);
   }
@@ -267,7 +267,7 @@ class DatabaseService {
       SELECT
         COUNT(*) as total_picks,
         COUNT(DISTINCT symbol) as unique_symbols,
-        COUNT(DISTINCT asof) as days_with_picks,
+        COUNT(DISTINCT date) as days_with_picks,
         AVG(score) as avg_score,
         AVG(roi_30d) as avg_roi,
         AVG(iv_rank) as avg_ivr

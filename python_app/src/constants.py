@@ -69,5 +69,6 @@ MAX_RETRIES = 3  # Max retries for failed API calls
 RETRY_DELAY = 1.0  # Initial delay in seconds for retries
 
 # ===== Mock Data Mode =====
-USE_MOCK_DATA = True  # Set to False when using real APIs
+import os
+USE_MOCK_DATA = os.getenv("USE_MOCK_DATA", "false").lower() == "true"  # Load from environment
 MOCK_UNIVERSE_SIZE = 5  # Number of symbols for mock testing
