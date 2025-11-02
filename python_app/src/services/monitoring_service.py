@@ -31,13 +31,19 @@ class MonitoringService:
     - Health status reporting
     """
 
-    def __init__(self, db_path: str = "python_app/data/screener.db"):
+    def __init__(self, db_path: str = None):
         """
         Initialize monitoring service.
 
         Args:
-            db_path: Path to SQLite database
+            db_path: Path to SQLite database (defaults to project data/screener.db)
         """
+        # Use absolute path by default
+        if db_path is None:
+            # Get project root (3 levels up from this file)
+            project_root = Path(__file__).parent.parent.parent.parent
+            db_path = str(project_root / "python_app" / "data" / "screener.db")
+
         self.db_path = db_path
         self.telegram = TelegramService()
 
