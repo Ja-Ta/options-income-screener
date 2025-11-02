@@ -126,12 +126,15 @@ class ClaudeService:
 
             payload = {
                 "model": "claude-3-haiku-20240307",  # Fast, cost-effective model
-                "max_tokens": 200,
+                "max_tokens": 350,  # Increased from 200 to prevent truncation
                 "messages": [
                     {"role": "user", "content": prompt}
                 ],
                 "temperature": 0.7
             }
+
+            # Log what we're sending to Claude for debugging
+            self.logger.debug(f"Generating rationale for {pick['symbol']} {pick['strategy']} ${pick['strike']}")
 
             response = requests.post(
                 self.base_url,
@@ -144,7 +147,14 @@ class ClaudeService:
             result = response.json()
             if 'content' in result and len(result['content']) > 0:
                 rationale = result['content'][0].get('text', '').strip()
-                self.logger.debug(f"Generated rationale for {pick['symbol']}")
+
+                # Validate response completeness
+                if len(rationale) < 50:
+                    self.logger.warning(f"Rationale too short ({len(rationale)} chars) for {pick['symbol']}")
+                elif not rationale[-1] in ['.', '!', '?']:
+                    self.logger.warning(f"Rationale may be truncated for {pick['symbol']} (ends with: '{rationale[-20:]}')")
+
+                self.logger.debug(f"Generated rationale for {pick['symbol']} ({len(rationale)} chars)")
                 return rationale
             else:
                 self.logger.error(f"Invalid Claude API response: {result}")

@@ -11,8 +11,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Database path configuration
-// Updated to point to Python app database (has monitoring tables)
-const DB_PATH = process.env.DB_PATH || path.resolve(__dirname, '../../python_app/data/screener.db');
+// Points to unified database at project root
+const DB_PATH = process.env.DB_PATH || path.resolve(__dirname, '../../data/screener.db');
 
 class DatabaseService {
   constructor() {
@@ -61,6 +61,11 @@ class DatabaseService {
       SELECT p.*, r.summary as rationale
       FROM picks p
       LEFT JOIN rationales r ON p.id = r.pick_id
+        AND r.created_at = (
+          SELECT MAX(created_at)
+          FROM rationales
+          WHERE pick_id = p.id
+        )
       WHERE p.date = ?
       ORDER BY p.score DESC
     `).all(date);
@@ -86,6 +91,11 @@ class DatabaseService {
       SELECT p.*, r.summary as rationale
       FROM picks p
       LEFT JOIN rationales r ON p.id = r.pick_id
+        AND r.created_at = (
+          SELECT MAX(created_at)
+          FROM rationales
+          WHERE pick_id = p.id
+        )
       WHERE 1=1
     `;
 
@@ -146,6 +156,11 @@ class DatabaseService {
       SELECT p.*, r.summary as rationale
       FROM picks p
       LEFT JOIN rationales r ON p.id = r.pick_id
+        AND r.created_at = (
+          SELECT MAX(created_at)
+          FROM rationales
+          WHERE pick_id = p.id
+        )
       ORDER BY p.score DESC
       LIMIT ?
     `).all(limit);
@@ -252,6 +267,11 @@ class DatabaseService {
       SELECT p.*, r.summary as rationale
       FROM picks p
       LEFT JOIN rationales r ON p.id = r.pick_id
+        AND r.created_at = (
+          SELECT MAX(created_at)
+          FROM rationales
+          WHERE pick_id = p.id
+        )
       WHERE p.symbol LIKE ?
       ORDER BY p.date DESC, p.score DESC
       LIMIT 50

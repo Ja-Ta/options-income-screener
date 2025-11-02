@@ -74,8 +74,8 @@ class ProductionPipeline:
         self.claude = ClaudeService()
         self.monitoring = MonitoringService()
 
-        # Database paths
-        self.python_db_path = "python_app/data/screener.db"
+        # Database paths (unified - run from project root)
+        self.python_db_path = "data/screener.db"
         self.node_db_path = "data/screener.db"
 
         # Run tracking
@@ -374,11 +374,18 @@ class ProductionPipeline:
                             WHERE id = ?
                         ''', (rationale_text, pick_id))
 
-                        # Also save to rationales table if it exists
+                        # Delete existing rationales for this pick to prevent duplicates
                         cursor.execute('''
-                            INSERT OR REPLACE INTO rationales (pick_id, summary, created_at)
+                            DELETE FROM rationales WHERE pick_id = ?
+                        ''', (pick_id,))
+
+                        # Insert new rationale
+                        cursor.execute('''
+                            INSERT INTO rationales (pick_id, summary, created_at)
                             VALUES (?, ?, datetime('now'))
                         ''', (pick_id, rationale_text))
+
+                        logger.debug(f"Saved rationale for pick {pick_id} ({rationale_text[:50]}...)")
                     except Exception as e:
                         logger.error(f"Error saving rationale for pick {pick_id}: {e}")
 

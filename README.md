@@ -57,10 +57,17 @@ This screener helps identify high-quality options trading opportunities for inco
    sqlite3 data/screener.db < python_app/src/storage/schema.sql
    ```
 
-6. **Run tests (mock mode)**
+6. **Start the API server**
    ```bash
-   python test_foundation.py
+   ./start_api.sh
    ```
+
+7. **Run daily screening**
+   ```bash
+   ./run_daily_screening.sh
+   ```
+
+See **[Management Scripts](MANAGEMENT_SCRIPTS.md)** for detailed operational guides.
 
 ## 📁 Project Structure
 
@@ -79,32 +86,50 @@ This screener helps identify high-quality options trading opportunities for inco
 
 ## 📖 Documentation
 
+**Core Documentation**
 - **[Technical Specification](options_income_screener_spec.md)**: Complete system design
 - **[Development Guide](CLAUDE.md)**: Coding standards and workflows
 - **[MVP Roadmap](MVP_ROADMAP.md)**: Implementation checklist
+- **[Project Status](PROJECT_STATUS.md)**: Current system status and metrics
+
+**Operational Guides**
+- **[Management Scripts](MANAGEMENT_SCRIPTS.md)**: Server management and operations
+- **[API Documentation](API.md)**: REST API endpoints reference
+- **[Scheduling Guide](SCHEDULING.md)**: Automated execution setup
+- **[Telegram Setup](TELEGRAM_SETUP.md)**: Bot configuration guide
+- **[Monitoring](MONITORING.md)**: Health checks and alerting
 
 ## 🧪 Development Status
 
-**Production Ready ✅**
-- Real Polygon Options API integration (Options Advanced tier)
-- Database schema with full options data
-- Web dashboard at http://157.245.214.224:3000
-- Telegram bot alerts working
-- Real-time options screening with Greeks and IV
+**Production Ready ✅** - Last Updated: November 2, 2025
+
+**Core System**
+- ✅ Real Polygon Options API integration (Options Advanced tier)
+- ✅ Unified SQLite database with WAL mode (data/screener.db)
+- ✅ Web dashboard at http://157.245.214.224:3000
+- ✅ Automated daily screening via cron (10 AM ET, weekdays)
+- ✅ Claude AI rationales for top picks
+- ✅ Telegram bot alerts with AI insights
+- ✅ Real-time options screening with Greeks and IV
 
 **Working Features 🚀**
-- Fetching real options contracts and quotes
-- Calculating scores based on IV, Delta, ROI
-- Saving picks to database
-- Sending daily alerts
-- Dashboard displaying picks with filters
+- ✅ 13-symbol universe (SPY, QQQ, IWM, DIA, AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA, AMD, JPM)
+- ✅ IV Rank and IV Percentile calculations
+- ✅ Technical indicators (SMA, momentum, volatility)
+- ✅ Risk-adjusted scoring algorithms
+- ✅ AI-generated rationales (Claude 3 Haiku)
+- ✅ Multi-destination Telegram alerts
+- ✅ Comprehensive REST API (15+ endpoints)
+- ✅ Database unification (Python ↔ Node.js)
+- ✅ Management scripts (start/stop/restart API)
+- ✅ Quality monitoring and error handling
 
-**Next Steps 📋**
-- Expand to more symbols (currently 3)
-- Add automated scheduling (cron)
-- Integrate Claude AI for rationales
-- Connect API routes to server
-- Add error monitoring
+**Recent Improvements** (Nov 2, 2025)
+- Fixed 4 critical AI rationale quality issues
+- Unified database architecture
+- Enhanced rationale generation (no truncation, correct symbols)
+- Added management scripts for easy server control
+- Comprehensive documentation updates
 
 ## 📝 License
 

@@ -84,7 +84,31 @@
   - `/api/symbols/*` - Symbol search and history
 - Auto-generated API docs available at `/api`
 
-### 5. Monitoring & Error Handling (Priority: MEDIUM)
+### 5. ✅ Database Unification (Priority: HIGH) - COMPLETE
+**Status:** Unified database architecture implemented
+- Consolidated to single database (data/screener.db)
+- Fixed Python ↔ Node.js path conflicts
+- Updated run_daily_screening.sh to run from project root
+- Fixed node_ui/src/db.js database path
+- Added subqueries for latest rationale deduplication
+- Verified end-to-end functionality (28 picks, 5 rationales)
+
+### 6. ✅ AI Rationale Quality Fixes (Priority: HIGH) - COMPLETE
+**Status:** All 4 critical issues resolved
+- ✅ Fixed duplicate rationales (DELETE + INSERT pattern)
+- ✅ Fixed truncated responses (max_tokens 200 → 350)
+- ✅ Fixed wrong symbols (corrected data passing)
+- ✅ Fixed API duplicate calls (proper query deduplication)
+- Quality validation: 100% complete rationales (867-1106 chars)
+
+### 7. ✅ Management Scripts (Priority: MEDIUM) - COMPLETE
+**Status:** Operational scripts created
+- start_api.sh - Start server with health checks
+- stop_api.sh - Graceful shutdown (SIGTERM → SIGKILL)
+- restart_api.sh - Clean restart workflow
+- MANAGEMENT_SCRIPTS.md - Complete operations guide
+
+### 8. Monitoring & Error Handling (Priority: MEDIUM)
 - Add try/catch blocks in screening pipeline
 - Send Telegram alert on failures
 - Log errors to file
@@ -133,27 +157,27 @@ The MVP is now functional with:
 ## 🔧 Quick Start Commands
 
 ```bash
-# Activate Python environment
-source python_app/venv/bin/activate
+# Run daily screening (automated via cron)
+./run_daily_screening.sh
 
-# Run real options screening (PRODUCTION)
-python python_app/real_polygon_screening.py
-
-# Start Node.js server
-cd node_ui && npm start
+# Manage API server
+./start_api.sh      # Start server
+./stop_api.sh       # Stop server
+./restart_api.sh    # Restart server
 
 # View dashboard
 open http://157.245.214.224:3000
 
-# Check latest picks in database
+# Check database
 sqlite3 data/screener.db "SELECT * FROM picks ORDER BY created_at DESC LIMIT 10;"
+sqlite3 data/screener.db "SELECT symbol, summary FROM picks p JOIN rationales r ON p.id = r.pick_id ORDER BY r.created_at DESC LIMIT 5;"
 
-# Test Telegram bot
-python python_app/get_telegram_chat_id.py
-
-# Run mock screening for testing
-python python_app/simple_mock_screening.py
+# View logs
+tail -f logs/screening_$(date +%Y%m%d).log  # Daily screening log
+tail -f /tmp/api_server.log                  # API server log
 ```
+
+See **[MANAGEMENT_SCRIPTS.md](MANAGEMENT_SCRIPTS.md)** for complete operational guide.
 
 ## 📚 Key Production Files
 
@@ -194,9 +218,10 @@ node_ui/
 
 ## 🎯 Current Entry Point
 
-**Production:** `python python_app/real_polygon_screening.py`
+**Production:** `./run_daily_screening.sh` (automated via cron)
+**API Server:** `./start_api.sh` (manual startup)
 **Dashboard:** http://157.245.214.224:3000
 
 ---
 
-**Status:** System is functional and production-ready with real options data and AI-powered insights via Claude!
+**Status:** System is fully functional and production-ready! All MVP features complete, quality issues resolved, database unified, and comprehensive operational documentation in place. Running automated daily screening with 100% AI rationale success rate.

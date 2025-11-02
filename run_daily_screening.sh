@@ -73,11 +73,11 @@ log "Working directory: $(pwd)"
 
 # Run the screening pipeline
 log "Running production pipeline..."
-log "Command: cd python_app && python -m src.pipelines.daily_job"
+log "Command: python -m python_app.src.pipelines.daily_job"
 
 # Execute with error handling
 # Note: Pipeline has built-in error notification, but we catch fatal errors too
-if cd python_app && python -m src.pipelines.daily_job 2>&1 | tee -a "$LOG_FILE"; then
+if python -m python_app.src.pipelines.daily_job 2>&1 | tee -a "$LOG_FILE"; then
     exit_code=0
     log "✅ Pipeline completed successfully"
 else
