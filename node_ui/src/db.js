@@ -11,7 +11,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Database path configuration
-const DB_PATH = process.env.DB_PATH || path.resolve(__dirname, '../../data/screener.db');
+// Updated to point to Python app database (has monitoring tables)
+const DB_PATH = process.env.DB_PATH || path.resolve(__dirname, '../../python_app/data/screener.db');
 
 class DatabaseService {
   constructor() {
@@ -22,7 +23,7 @@ class DatabaseService {
   connect() {
     try {
       this.db = new Database(DB_PATH, {
-        readonly: true,
+        readonly: false,  // Changed to allow monitoring route updates
         fileMustExist: false
       });
       console.log(`✅ Connected to database: ${DB_PATH}`);
@@ -289,6 +290,30 @@ class DatabaseService {
       overall,
       byStrategy
     };
+  }
+
+  /**
+   * Generic get method for monitoring routes (returns single row)
+   */
+  async get(query, params = []) {
+    if (!this.db) throw new Error('Database not connected');
+    return this.db.prepare(query).get(...params);
+  }
+
+  /**
+   * Generic all method for monitoring routes (returns all rows)
+   */
+  async all(query, params = []) {
+    if (!this.db) throw new Error('Database not connected');
+    return this.db.prepare(query).all(...params);
+  }
+
+  /**
+   * Generic run method for monitoring routes (executes without returning data)
+   */
+  async run(query, params = []) {
+    if (!this.db) throw new Error('Database not connected');
+    return this.db.prepare(query).run(...params);
   }
 
   /**

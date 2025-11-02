@@ -81,6 +81,14 @@ app.get('/api', (req, res) => {
       symbols: {
         'GET /search': '/api/symbols/search?q=AAPL - Search picks by symbol',
         'GET /:symbol/history': '/api/symbols/:symbol/history - Get symbol history'
+      },
+      monitoring: {
+        'GET /health': '/api/monitoring/health - System health status with score',
+        'GET /runs': '/api/monitoring/runs - Recent pipeline executions',
+        'GET /performance': '/api/monitoring/performance - Performance metrics summary',
+        'GET /alerts': '/api/monitoring/alerts - Recent monitoring alerts',
+        'POST /alerts/:id/acknowledge': '/api/monitoring/alerts/:id/acknowledge - Acknowledge alert',
+        'GET /metrics/:runId': '/api/monitoring/metrics/:runId - Metrics for specific run'
       }
     },
     queryParameters: {
