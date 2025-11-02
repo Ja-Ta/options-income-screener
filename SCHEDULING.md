@@ -6,27 +6,43 @@ The Options Income Screener runs automatically every weekday at **10:00 AM Easte
 
 ## Schedule
 
+### Daily Options Screening
 - **Time:** 10:00 AM Eastern Time (15:00 UTC)
 - **Days:** Monday through Friday (weekdays only)
 - **No execution on:** Weekends and market holidays
+
+### Dead Man's Switch (Health Check)
+- **Time:** 6:00 PM Eastern Time (23:00 UTC)
+- **Days:** Every day (including weekends)
+- **Purpose:** Verify pipeline is running, alert if stale
 
 ## Components
 
 ### 1. Cron Job
 
-The cron job is configured in the user's crontab:
+The cron jobs are configured in the user's crontab:
 
 ```cron
 # Daily options screening - runs at 10 AM ET (3 PM UTC) on weekdays
 0 15 * * 1-5 /home/oisadm/development/options-income-screener/run_daily_screening.sh
+
+# Dead man's switch - checks pipeline health daily at 6 PM ET (11 PM UTC)
+0 23 * * * /home/oisadm/development/options-income-screener/python_app/venv/bin/python /home/oisadm/development/options-income-screener/check_dead_mans_switch.py >> /home/oisadm/development/options-income-screener/logs/dead_mans_switch.log 2>&1
 ```
 
-**Cron schedule breakdown:**
+**Cron schedule breakdown (Daily Screening):**
 - `0` - Minute (0 = top of the hour)
 - `15` - Hour (15 = 3 PM UTC / 10 AM EST)
 - `*` - Day of month (any day)
 - `*` - Month (any month)
 - `1-5` - Day of week (Monday-Friday)
+
+**Cron schedule breakdown (Dead Man's Switch):**
+- `0` - Minute (0 = top of the hour)
+- `23` - Hour (23 = 11 PM UTC / 6 PM EST)
+- `*` - Day of month (any day)
+- `*` - Month (any month)
+- `*` - Day of week (every day)
 
 ### 2. Wrapper Script
 
