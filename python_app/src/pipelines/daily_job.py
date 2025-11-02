@@ -458,13 +458,14 @@ class ProductionPipeline:
     def send_alerts(self, cc_picks: List[Dict], csp_picks: List[Dict]) -> bool:
         """
         Send alerts via Telegram with AI rationales.
+        Sends separate messages for CC and CSP to avoid Telegram's 4096 char limit.
 
         Args:
             cc_picks: List of CC picks
             csp_picks: List of CSP picks
 
         Returns:
-            True if alert sent successfully
+            True if at least one alert sent successfully
         """
         if not cc_picks and not csp_picks:
             return False
@@ -486,47 +487,57 @@ class ProductionPipeline:
             finally:
                 conn.close()
 
-            # Format message
-            message = f"🎯 **Daily Options Screening Results**\n"
-            message += f"📅 {date.today()}\n"
-            message += f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            success = False
 
+            # Send header message
+            header = f"🎯 **Daily Options Screening Results**\n"
+            header += f"📅 {date.today()}\n"
+            header += f"━━━━━━━━━━━━━━━━━━━━\n"
+            if self.telegram.send_message(header):
+                success = True
+
+            # Send CC picks as separate message
             if cc_picks:
-                message += f"📈 **Top Covered Calls ({len(cc_picks)})**\n"
+                cc_message = f"\n📈 **Top Covered Calls ({len(cc_picks)})**\n"
                 for pick in cc_picks[:3]:
-                    message += f"\n• **{pick['symbol']}** @ ${pick['strike']:.2f}\n"
-                    message += f"  Premium: ${pick.get('premium', 0):.2f} | ROI: {pick.get('roi_30d', 0):.1%}\n"
-                    if pick.get('iv'):
-                        message += f"  IV: {pick['iv']:.1%} | Score: {pick.get('score', 0):.2f}\n"
+                    cc_message += f"\n• **{pick['symbol']}** @ ${pick['strike']:.2f} (Exp: {pick.get('expiry', 'N/A')})\n"
+                    cc_message += f"  Premium: ${pick.get('premium', 0):.2f} | ROI: {pick.get('roi_30d', 0):.1%}\n"
+                    if pick.get('iv_rank'):
+                        cc_message += f"  IV Rank: {pick['iv_rank']:.1f}% | Score: {pick.get('score', 0):.2f}\n"
 
-                    # Add rationale if available
+                    # Add full rationale (no truncation needed with separate messages)
                     if pick.get('id') and pick['id'] in rationales_map:
                         rationale = rationales_map[pick['id']]
-                        if len(rationale) > 150:
-                            rationale = rationale[:147] + "..."
-                        message += f"  💡 {rationale}\n"
-                message += "\n"
+                        cc_message += f"\n  💡 {rationale}\n"
 
+                if self.telegram.send_message(cc_message):
+                    success = True
+
+            # Send CSP picks as separate message
             if csp_picks:
-                message += f"💰 **Top Cash-Secured Puts ({len(csp_picks)})**\n"
+                csp_message = f"\n💰 **Top Cash-Secured Puts ({len(csp_picks)})**\n"
                 for pick in csp_picks[:3]:
-                    message += f"\n• **{pick['symbol']}** @ ${pick['strike']:.2f}\n"
-                    message += f"  Premium: ${pick.get('premium', 0):.2f} | ROI: {pick.get('roi_30d', 0):.1%}\n"
-                    if pick.get('iv'):
-                        message += f"  IV: {pick['iv']:.1%} | Score: {pick.get('score', 0):.2f}\n"
+                    csp_message += f"\n• **{pick['symbol']}** @ ${pick['strike']:.2f} (Exp: {pick.get('expiry', 'N/A')})\n"
+                    csp_message += f"  Premium: ${pick.get('premium', 0):.2f} | ROI: {pick.get('roi_30d', 0):.1%}\n"
+                    if pick.get('iv_rank'):
+                        csp_message += f"  IV Rank: {pick['iv_rank']:.1f}% | Score: {pick.get('score', 0):.2f}\n"
 
-                    # Add rationale if available
+                    # Add full rationale (no truncation needed with separate messages)
                     if pick.get('id') and pick['id'] in rationales_map:
                         rationale = rationales_map[pick['id']]
-                        if len(rationale) > 150:
-                            rationale = rationale[:147] + "..."
-                        message += f"  💡 {rationale}\n"
+                        csp_message += f"\n  💡 {rationale}\n"
 
-            message += f"\n📊 Dashboard: http://157.245.214.224:3000"
-            message += f"\n🤖 AI rationales powered by Claude"
+                if self.telegram.send_message(csp_message):
+                    success = True
 
-            # Send message
-            return self.telegram.send_message(message)
+            # Send footer message
+            footer = f"\n📊 Dashboard: http://157.245.214.224:3000"
+            footer += f"\n🤖 AI rationales powered by Claude"
+            footer += f"\n\n⚠️ For educational purposes only. Not financial advice."
+            if self.telegram.send_message(footer):
+                success = True
+
+            return success
 
         except Exception as e:
             logger.error(f"Error sending alerts: {e}")
@@ -601,9 +612,11 @@ class ProductionPipeline:
             rationales_count = self.generate_and_save_rationales(picks_with_ids)
             logger.info(f"Generated {rationales_count} AI rationales")
 
-            # Send alerts
+            # Send alerts (use picks_with_ids so rationales can be looked up by ID)
             logger.info("\nSending alerts...")
-            if self.send_alerts(cc_picks, csp_picks):
+            cc_picks_with_ids = [p for p in picks_with_ids if p.get('strategy') == 'CC']
+            csp_picks_with_ids = [p for p in picks_with_ids if p.get('strategy') == 'CSP']
+            if self.send_alerts(cc_picks_with_ids, csp_picks_with_ids):
                 logger.info("Telegram alert sent successfully")
             else:
                 logger.warning("Failed to send Telegram alert")

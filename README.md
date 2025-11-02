@@ -125,6 +125,16 @@ See **[Management Scripts](MANAGEMENT_SCRIPTS.md)** for detailed operational gui
 - ✅ Quality monitoring and error handling
 
 **Recent Improvements** (Nov 2, 2025)
+
+*Telegram Alert Enhancements (v2.2)*
+- ✅ Fixed AI rationales appearing in Telegram alerts (data flow bug)
+- ✅ Split alerts into 4 separate messages (avoids 4096 char limit)
+- ✅ Fixed IV Rank display (100.0% instead of 10000%)
+- ✅ Added expiry dates to all pick displays
+- ✅ Added legal disclaimer "For educational purposes only"
+- ✅ Increased Claude token limit (350→500) for complete rationales
+
+*API Migration & Performance (v2.1)*
 - 🚀 Migrated to Massive.com API (formerly Polygon.io)
 - 🚀 Optimized for unlimited API tier (5→20 contracts, removed rate limits)
 - 🚀 Expanded universe to 19 symbols (added PLTR, COIN, NBIS, SOFI, HOOD, GME)
@@ -134,7 +144,7 @@ See **[Management Scripts](MANAGEMENT_SCRIPTS.md)** for detailed operational gui
 - ✅ Unified database architecture
 - ✅ Enhanced rationale generation (no truncation, correct symbols)
 - ✅ Added management scripts for easy server control
-- Comprehensive documentation updates
+- 📖 Comprehensive documentation updates
 
 ## 📝 License
 

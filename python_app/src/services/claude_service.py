@@ -126,7 +126,7 @@ class ClaudeService:
 
             payload = {
                 "model": "claude-3-haiku-20240307",  # Fast, cost-effective model
-                "max_tokens": 350,  # Increased from 200 to prevent truncation
+                "max_tokens": 500,  # Increased to allow complete rationales without truncation
                 "messages": [
                     {"role": "user", "content": prompt}
                 ],
