@@ -56,6 +56,14 @@ The Options Income Screener is now fully functional with AI-powered insights. Th
 - Beginner-friendly explanations for option strategies
 - Cost-optimized (limited to top 5 picks per run)
 
+### 7. Automated Scheduling
+- **Cron job configured** for daily execution
+- Runs at 10:00 AM Eastern Time (15:00 UTC)
+- Monday-Friday (weekdays only)
+- Automated logging to `logs/` directory
+- Error notifications via Telegram
+- Log rotation (keeps last 30 days)
+
 ## 📊 Last Run Statistics
 - **Date:** November 2, 2025
 - **Symbols Screened:** 3 (SPY, AAPL, MSFT)
@@ -68,39 +76,35 @@ The Options Income Screener is now fully functional with AI-powered insights. Th
 ## 🔧 Open Items / Next Steps
 
 ### High Priority
-1. **Automated Scheduling**
-   - Add cron job for daily execution
-   - Currently requires manual run
-
-2. **Expand Symbol Universe**
+1. **Expand Symbol Universe**
    - Current: 3 symbols
    - Target: 10-50 symbols
    - Consider: SPY, QQQ, AAPL, MSFT, GOOGL, AMZN, TSLA, META, NVDA, AMD
 
-3. **Production Pipeline Integration**
+2. **Production Pipeline Integration**
    - Update `daily_job.py` to use `real_polygon_screening.py`
    - Add proper error handling and retries
 
 ### Medium Priority
-4. **API Routes**
+3. **API Routes**
    - Route files exist but not mounted
    - Connect `/api/picks`, `/api/stats`, `/api/symbols`
 
-5. **Error Handling & Monitoring**
+4. **Error Handling & Monitoring**
    - Add comprehensive try/catch blocks
    - Send Telegram alerts on failures
    - Log errors to file
 
 ### Low Priority
-6. **Data Management**
+5. **Data Management**
    - Implement cleanup for old data
    - Add archival process
 
-7. **Performance**
+6. **Performance**
    - Optimize rate limiting
    - Add caching layer
 
-8. **Testing**
+7. **Testing**
    - Add unit tests for scoring
    - Integration tests for pipeline
 
