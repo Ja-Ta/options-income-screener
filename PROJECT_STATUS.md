@@ -64,6 +64,14 @@ The Options Income Screener is now fully functional with AI-powered insights. Th
 - Error notifications via Telegram
 - Log rotation (keeps last 30 days)
 
+### 8. REST API
+- **Comprehensive API** with 15+ endpoints
+- All routes properly mounted in Express server
+- Full documentation in API.md
+- Endpoints for picks, statistics, and symbol search
+- Query filtering and pagination support
+- Health check and auto-generated docs at `/api`
+
 ## 📊 Last Run Statistics
 - **Date:** November 2, 2025
 - **Symbols Screened:** 13 (SPY, QQQ, IWM, DIA, AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA, AMD, JPM)
@@ -81,25 +89,21 @@ The Options Income Screener is now fully functional with AI-powered insights. Th
    - Add proper error handling and retries
 
 ### Medium Priority
-3. **API Routes**
-   - Route files exist but not mounted
-   - Connect `/api/picks`, `/api/stats`, `/api/symbols`
-
-4. **Error Handling & Monitoring**
+3. **Error Handling & Monitoring**
    - Add comprehensive try/catch blocks
    - Send Telegram alerts on failures
    - Log errors to file
 
 ### Low Priority
-5. **Data Management**
+4. **Data Management**
    - Implement cleanup for old data
    - Add archival process
 
-6. **Performance**
+5. **Performance**
    - Optimize rate limiting
    - Add caching layer
 
-7. **Testing**
+6. **Testing**
    - Add unit tests for scoring
    - Integration tests for pipeline
 
@@ -136,7 +140,10 @@ sqlite3 data/screener.db "SELECT * FROM picks ORDER BY created_at DESC LIMIT 10;
 - **Dashboard:** `node_ui/src/server.js`
 - **Database:** `data/screener.db`
 - **Config:** `.env` (API keys configured including ANTHROPIC_API_KEY)
-- **Documentation:** `TELEGRAM_SETUP.md` - Telegram configuration guide
+- **Documentation:**
+  - `TELEGRAM_SETUP.md` - Telegram configuration guide
+  - `API.md` - REST API documentation
+  - `SCHEDULING.md` - Automated scheduling guide
 
 ## 🎯 Immediate Action Items
 
