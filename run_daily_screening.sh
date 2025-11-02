@@ -12,7 +12,7 @@ PROJECT_DIR="/home/oisadm/development/options-income-screener"
 LOG_DIR="$PROJECT_DIR/logs"
 LOG_FILE="$LOG_DIR/screening_$(date +%Y%m%d).log"
 VENV_PATH="$PROJECT_DIR/python_app/venv"
-SCRIPT_PATH="$PROJECT_DIR/python_app/real_polygon_screening.py"
+SCRIPT_PATH="$PROJECT_DIR/python_app/src/pipelines/daily_job.py"
 
 # Create logs directory if it doesn't exist
 mkdir -p "$LOG_DIR"
@@ -71,18 +71,19 @@ source "$VENV_PATH/bin/activate" || {
 log "Python version: $(python --version)"
 log "Working directory: $(pwd)"
 
-# Run the screening
-log "Running screening script..."
-log "Command: python $SCRIPT_PATH"
+# Run the screening pipeline
+log "Running production pipeline..."
+log "Command: cd python_app && python -m src.pipelines.daily_job"
 
 # Execute with error handling
-if python "$SCRIPT_PATH" 2>&1 | tee -a "$LOG_FILE"; then
+# Note: Pipeline has built-in error notification, but we catch fatal errors too
+if cd python_app && python -m src.pipelines.daily_job 2>&1 | tee -a "$LOG_FILE"; then
     exit_code=0
-    log "✅ Screening completed successfully"
+    log "✅ Pipeline completed successfully"
 else
     exit_code=$?
-    log "❌ Screening failed with exit code: $exit_code"
-    send_error_notification "Script exited with code $exit_code"
+    log "❌ Pipeline failed with exit code: $exit_code"
+    send_error_notification "Pipeline exited with code $exit_code"
 fi
 
 log "================================================"

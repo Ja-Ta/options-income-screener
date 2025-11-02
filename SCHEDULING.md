@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Options Income Screener runs automatically every weekday at **10:00 AM Eastern Time** using a cron job. This document explains how the scheduling works and how to manage it.
+The Options Income Screener runs automatically every weekday at **10:00 AM Eastern Time** using a cron job. The system uses a production-ready pipeline (`ProductionPipeline`) with comprehensive error handling, retry logic, and automated alerts. This document explains how the scheduling works and how to manage it.
 
 ## Schedule
 
@@ -35,10 +35,18 @@ The cron job is configured in the user's crontab:
 The wrapper script handles:
 - Environment setup
 - Virtual environment activation
-- Script execution
-- Logging
-- Error notifications via Telegram
+- Production pipeline execution (`src.pipelines.daily_job`)
+- Comprehensive logging
+- Error notifications via Telegram (double failsafe)
 - Log rotation (keeps last 30 days)
+
+**Pipeline Features:**
+- 3 retries with 5-second delay for API failures
+- Comprehensive error handling per symbol
+- Database writes to both Python and Node.js DBs
+- Claude AI rationale generation (top 5 picks)
+- Telegram alerts with AI insights
+- Detailed statistics and duration tracking
 
 ### 3. Logs
 
@@ -89,7 +97,13 @@ Or run the Python script directly:
 ```bash
 cd /home/oisadm/development/options-income-screener
 source python_app/venv/bin/activate
-python python_app/real_polygon_screening.py
+cd python_app
+python -m src.pipelines.daily_job
+```
+
+Or use the wrapper script:
+```bash
+/home/oisadm/development/options-income-screener/run_daily_screening.sh
 ```
 
 ### View Recent Logs

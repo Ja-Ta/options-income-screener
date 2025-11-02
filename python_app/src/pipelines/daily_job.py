@@ -1,448 +1,659 @@
 """
 Daily job pipeline for the Options Income Screener.
 
-Orchestrates the complete screening workflow from data ingestion to alerts.
+Orchestrates the complete screening workflow using real Polygon data.
 Python 3.12 compatible following CLAUDE.md standards.
 """
 
 import time
+import os
+import sys
+import sqlite3
+import logging
 from datetime import date, datetime, timedelta
 from typing import Dict, Any, List, Optional
-from ..config import (
-    POLYGON_API_KEY, DEFAULT_SYMBOLS,
-    CC_ENABLED, CSP_ENABLED,
-    MAX_PICKS_TO_ALERT, CLAUDE_ENABLED, TELEGRAM_ENABLED
-)
-from ..data.polygon_client import PolygonClient
-from ..features.iv_metrics import calculate_iv_metrics
-from ..features.technicals import calculate_technical_indicators
-from ..screeners.covered_calls import screen_multiple_cc
-from ..screeners.cash_secured_puts import screen_multiple_csp
-from ..scoring.score_cc import rank_cc_picks
-from ..scoring.score_csp import rank_csp_picks
-from ..storage.dao import (
-    SymbolsDAO, PricesDAO, OptionsDAO, IVMetricsDAO,
-    EarningsDAO, PicksDAO, RationalesDAO, AlertsDAO, StatsDAO
-)
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Add src to path if needed
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from ..data.real_options_fetcher import RealOptionsFetcher
 from ..services.telegram_service import TelegramService
 from ..services.claude_service import ClaudeService
-from ..utils.logging import get_logger, setup_logger as setup_logging
 
 
-class DailyPipeline:
-    """Orchestrates the complete daily screening pipeline."""
+# Configure logging
+logger = logging.getLogger(__name__)
 
-    def __init__(self, symbols: List[str] = None, asof: date = None):
+
+class ProductionPipeline:
+    """
+    Production-ready pipeline for daily options screening.
+
+    Integrates real Polygon API data with error handling, retry logic,
+    and comprehensive logging.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        symbols: List[str] = None,
+        max_retries: int = 3,
+        retry_delay: int = 5
+    ):
         """
-        Initialize the daily pipeline.
+        Initialize the production pipeline.
 
         Args:
-            symbols: List of symbols to screen (defaults to config)
-            asof: Date to run pipeline for (defaults to today)
+            api_key: Polygon API key
+            symbols: List of symbols to screen (defaults to production symbols)
+            max_retries: Maximum number of retries for API failures
+            retry_delay: Delay between retries in seconds
         """
-        self.symbols = symbols or DEFAULT_SYMBOLS
-        self.asof = asof or date.today()
-        self.logger = get_logger()
+        self.api_key = api_key
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
 
-        # Initialize components
-        self.polygon_client = PolygonClient(POLYGON_API_KEY)
-        self.symbols_dao = SymbolsDAO()
-        self.prices_dao = PricesDAO()
-        self.options_dao = OptionsDAO()
-        self.iv_dao = IVMetricsDAO()
-        self.earnings_dao = EarningsDAO()
-        self.picks_dao = PicksDAO()
-        self.rationales_dao = RationalesDAO()
-        self.alerts_dao = AlertsDAO()
-        self.stats_dao = StatsDAO()
+        # Default production symbols - high liquidity options-friendly stocks
+        self.symbols = symbols or [
+            # Major ETFs
+            'SPY', 'QQQ', 'IWM', 'DIA',
+            # Mega-cap Tech
+            'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA',
+            # Other High-Volume
+            'TSLA', 'AMD', 'JPM'
+        ]
 
-        # Services (optional)
-        self.telegram_service = TelegramService() if TELEGRAM_ENABLED else None
-        self.claude_service = ClaudeService() if CLAUDE_ENABLED else None
+        # Initialize services
+        self.fetcher = RealOptionsFetcher(api_key)
+        self.telegram = TelegramService()
+        self.claude = ClaudeService()
+
+        # Database paths
+        self.python_db_path = "python_app/data/screener.db"
+        self.node_db_path = "data/screener.db"
+
+        # Statistics
+        self.stats = {
+            'symbols_attempted': 0,
+            'symbols_succeeded': 0,
+            'symbols_failed': 0,
+            'total_picks': 0,
+            'cc_picks': 0,
+            'csp_picks': 0,
+            'api_calls': 0,
+            'errors': []
+        }
+
+    def calculate_score(self, option: Dict, strategy: str) -> float:
+        """
+        Calculate composite score for an option.
+
+        Args:
+            option: Option data dictionary
+            strategy: "CC" or "CSP"
+
+        Returns:
+            Composite score (0-1)
+        """
+        score = 0.0
+
+        # ROI component (30%)
+        roi_score = min(option.get('roi_30d', 0) * 10, 1.0) * 0.3
+
+        # IV component (40%)
+        iv = option.get('iv', 0)
+        if strategy == 'CC':
+            # Higher IV is better for selling calls
+            iv_score = min(iv * 2, 1.0) * 0.4
+        else:
+            # Moderate IV is better for CSPs
+            iv_score = min(iv * 2.5, 1.0) * 0.4
+
+        # Moneyness component (20%)
+        moneyness = abs(option.get('moneyness', 0))
+        # Prefer 2-4% OTM
+        if 0.02 <= moneyness <= 0.04:
+            moneyness_score = 1.0 * 0.2
+        elif 0.01 <= moneyness <= 0.05:
+            moneyness_score = 0.7 * 0.2
+        else:
+            moneyness_score = 0.3 * 0.2
+
+        # Delta component (10%)
+        delta = abs(option.get('delta', 0))
+        # Prefer delta around 0.20-0.35
+        if 0.20 <= delta <= 0.35:
+            delta_score = 1.0 * 0.1
+        elif 0.15 <= delta <= 0.40:
+            delta_score = 0.7 * 0.1
+        else:
+            delta_score = 0.3 * 0.1
+
+        score = roi_score + iv_score + moneyness_score + delta_score
+        return min(score, 1.0)
+
+    def screen_symbol_with_retry(self, symbol: str) -> Dict:
+        """
+        Screen a single symbol with retry logic.
+
+        Args:
+            symbol: Stock symbol to screen
+
+        Returns:
+            Dictionary with cc_picks and csp_picks
+        """
+        for attempt in range(self.max_retries):
+            try:
+                logger.info(f"Screening {symbol} (attempt {attempt + 1}/{self.max_retries})...")
+
+                # Get stock price
+                stock_price = self.fetcher.get_stock_price(symbol)
+                if not stock_price:
+                    logger.warning(f"Could not get stock price for {symbol}")
+                    return {'symbol': symbol, 'cc_picks': [], 'csp_picks': []}
+
+                self.stats['api_calls'] += 1
+
+                # Find covered calls
+                cc_candidates = self.fetcher.find_covered_call_candidates(symbol, stock_price)
+                cc_picks = []
+
+                for candidate in cc_candidates:
+                    if candidate['mid'] > 0:
+                        candidate['strategy'] = 'CC'
+                        candidate['premium'] = candidate['mid']
+                        candidate['score'] = self.calculate_score(candidate, 'CC')
+                        candidate['trend'] = 'neutral'
+                        candidate['earnings_days'] = 45  # Placeholder
+                        cc_picks.append(candidate)
+
+                self.stats['api_calls'] += len(cc_candidates)
+
+                # Find cash-secured puts
+                csp_candidates = self.fetcher.find_cash_secured_put_candidates(symbol, stock_price)
+                csp_picks = []
+
+                for candidate in csp_candidates:
+                    if candidate['mid'] > 0:
+                        candidate['strategy'] = 'CSP'
+                        candidate['premium'] = candidate['mid']
+                        candidate['score'] = self.calculate_score(candidate, 'CSP')
+                        candidate['trend'] = 'neutral'
+                        candidate['earnings_days'] = 45  # Placeholder
+                        csp_picks.append(candidate)
+
+                self.stats['api_calls'] += len(csp_candidates)
+
+                # Sort by score
+                cc_picks.sort(key=lambda x: x['score'], reverse=True)
+                csp_picks.sort(key=lambda x: x['score'], reverse=True)
+
+                logger.info(f"  Found {len(cc_picks)} CC and {len(csp_picks)} CSP candidates for {symbol}")
+
+                return {
+                    'symbol': symbol,
+                    'cc_picks': cc_picks[:2],  # Top 2 of each
+                    'csp_picks': csp_picks[:2]
+                }
+
+            except Exception as e:
+                logger.error(f"Attempt {attempt + 1} failed for {symbol}: {e}")
+
+                if attempt < self.max_retries - 1:
+                    logger.info(f"Retrying in {self.retry_delay} seconds...")
+                    time.sleep(self.retry_delay)
+                else:
+                    logger.error(f"All retries exhausted for {symbol}")
+                    self.stats['errors'].append(f"{symbol}: {str(e)}")
+                    return {'symbol': symbol, 'cc_picks': [], 'csp_picks': []}
+
+        return {'symbol': symbol, 'cc_picks': [], 'csp_picks': []}
+
+    def save_picks_to_db(self, all_picks: List[Dict]) -> tuple[int, List[Dict]]:
+        """
+        Save picks to both Python and Node.js databases.
+
+        Args:
+            all_picks: List of all picks
+
+        Returns:
+            Tuple of (number_saved, picks_with_ids)
+        """
+        if not all_picks:
+            return 0, []
+
+        today = date.today()
+        inserted = 0
+        picks_with_ids = []
+
+        try:
+            # Save to Python database
+            conn = sqlite3.connect(self.python_db_path)
+            cursor = conn.cursor()
+
+            # Clear today's picks
+            cursor.execute("DELETE FROM picks WHERE date = ?", (today.isoformat(),))
+
+            for pick in all_picks:
+                try:
+                    # Calculate IV rank
+                    iv_rank = min(pick.get('iv', 0.5) * 100, 100) if pick.get('iv') else 50
+
+                    cursor.execute('''
+                        INSERT INTO picks (
+                            date, asof, symbol, strategy, strike, expiry,
+                            premium, stock_price, roi_30d, annualized_return,
+                            iv_rank, score, trend, earnings_days
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        today.isoformat(), today.isoformat(),
+                        pick['symbol'], pick['strategy'],
+                        pick['strike'], pick['expiry'],
+                        pick['premium'], pick['stock_price'],
+                        pick['roi_30d'], pick['annualized_return'],
+                        iv_rank, pick['score'],
+                        pick['trend'], pick['earnings_days']
+                    ))
+
+                    pick_id = cursor.lastrowid
+                    pick_copy = pick.copy()
+                    pick_copy['id'] = pick_id
+                    pick_copy['spot_price'] = pick['stock_price']
+                    pick_copy['iv_rank'] = iv_rank
+                    picks_with_ids.append(pick_copy)
+                    inserted += 1
+
+                except Exception as e:
+                    logger.error(f"Error inserting pick: {e}")
+
+            conn.commit()
+            conn.close()
+
+            logger.info(f"Saved {inserted} picks to Python database")
+
+            # Sync to Node.js database
+            try:
+                conn2 = sqlite3.connect(self.node_db_path)
+                cursor2 = conn2.cursor()
+                cursor2.execute("DELETE FROM picks WHERE date = ?", (today.isoformat(),))
+
+                for pick in all_picks:
+                    try:
+                        iv_rank = min(pick.get('iv', 0.5) * 100, 100) if pick.get('iv') else 50
+
+                        cursor2.execute('''
+                            INSERT INTO picks (
+                                date, asof, symbol, strategy, strike, expiry,
+                                premium, stock_price, roi_30d, annualized_return,
+                                iv_rank, score, trend, earnings_days
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''', (
+                            today.isoformat(), today.isoformat(),
+                            pick['symbol'], pick['strategy'],
+                            pick['strike'], pick['expiry'],
+                            pick['premium'], pick['stock_price'],
+                            pick['roi_30d'], pick['annualized_return'],
+                            iv_rank, pick['score'],
+                            pick['trend'], pick['earnings_days']
+                        ))
+                    except Exception as e:
+                        logger.error(f"Error syncing pick to Node DB: {e}")
+
+                conn2.commit()
+                conn2.close()
+                logger.info(f"Synced {inserted} picks to Node.js database")
+
+            except Exception as e:
+                logger.error(f"Error syncing to Node database: {e}")
+                # Continue even if sync fails
+
+        except Exception as e:
+            logger.error(f"Error saving to Python database: {e}")
+            self.stats['errors'].append(f"Database error: {str(e)}")
+
+        return inserted, picks_with_ids
+
+    def generate_and_save_rationales(self, picks: List[Dict]) -> int:
+        """
+        Generate Claude AI rationales for top picks and save to database.
+
+        Args:
+            picks: List of picks with IDs
+
+        Returns:
+            Number of rationales generated
+        """
+        if not picks:
+            return 0
+
+        try:
+            # Take top 5 picks for rationale generation to manage API costs
+            top_picks = sorted(picks, key=lambda x: x.get('score', 0), reverse=True)[:5]
+
+            logger.info(f"Generating AI rationales for top {len(top_picks)} picks...")
+
+            # Add required fields for Claude service
+            for pick in top_picks:
+                # Add trend_strength based on trend
+                if pick.get('trend') == 'uptrend':
+                    pick['trend_strength'] = 0.6
+                elif pick.get('trend') == 'neutral':
+                    pick['trend_strength'] = 0
+                else:
+                    pick['trend_strength'] = -0.4
+
+                # Add other fields Claude expects
+                pick['below_200sma'] = False  # Simplified
+                pick['margin_of_safety'] = abs(pick['stock_price'] - pick['strike']) / pick['stock_price']
+
+            # Generate rationales
+            rationales = self.claude.generate_batch_rationales(top_picks)
+
+            if rationales:
+                logger.info(f"Generated {len(rationales)} rationales")
+
+                # Save rationales to database
+                conn = sqlite3.connect(self.python_db_path)
+                cursor = conn.cursor()
+
+                for pick_id, rationale_text in rationales.items():
+                    try:
+                        # Update pick with rationale
+                        cursor.execute('''
+                            UPDATE picks
+                            SET rationale = ?
+                            WHERE id = ?
+                        ''', (rationale_text, pick_id))
+
+                        # Also save to rationales table if it exists
+                        cursor.execute('''
+                            INSERT OR REPLACE INTO rationales (pick_id, summary, created_at)
+                            VALUES (?, ?, datetime('now'))
+                        ''', (pick_id, rationale_text))
+                    except Exception as e:
+                        logger.error(f"Error saving rationale for pick {pick_id}: {e}")
+
+                conn.commit()
+                conn.close()
+                logger.info(f"Saved {len(rationales)} rationales to database")
+                return len(rationales)
+
+        except Exception as e:
+            logger.error(f"Error generating rationales: {e}")
+            self.stats['errors'].append(f"Claude API error: {str(e)}")
+
+        return 0
+
+    def send_alerts(self, cc_picks: List[Dict], csp_picks: List[Dict]) -> bool:
+        """
+        Send alerts via Telegram with AI rationales.
+
+        Args:
+            cc_picks: List of CC picks
+            csp_picks: List of CSP picks
+
+        Returns:
+            True if alert sent successfully
+        """
+        if not cc_picks and not csp_picks:
+            return False
+
+        try:
+            # Get rationales from database
+            conn = sqlite3.connect(self.python_db_path)
+            cursor = conn.cursor()
+            rationales_map = {}
+
+            try:
+                cursor.execute('''
+                    SELECT id, rationale FROM picks
+                    WHERE date = ? AND rationale IS NOT NULL
+                ''', (date.today().isoformat(),))
+
+                for row in cursor.fetchall():
+                    rationales_map[row[0]] = row[1]
+            finally:
+                conn.close()
+
+            # Format message
+            message = f"🎯 **Daily Options Screening Results**\n"
+            message += f"📅 {date.today()}\n"
+            message += f"━━━━━━━━━━━━━━━━━━━━\n\n"
+
+            if cc_picks:
+                message += f"📈 **Top Covered Calls ({len(cc_picks)})**\n"
+                for pick in cc_picks[:3]:
+                    message += f"\n• **{pick['symbol']}** @ ${pick['strike']:.2f}\n"
+                    message += f"  Premium: ${pick.get('premium', 0):.2f} | ROI: {pick.get('roi_30d', 0):.1%}\n"
+                    if pick.get('iv'):
+                        message += f"  IV: {pick['iv']:.1%} | Score: {pick.get('score', 0):.2f}\n"
+
+                    # Add rationale if available
+                    if pick.get('id') and pick['id'] in rationales_map:
+                        rationale = rationales_map[pick['id']]
+                        if len(rationale) > 150:
+                            rationale = rationale[:147] + "..."
+                        message += f"  💡 {rationale}\n"
+                message += "\n"
+
+            if csp_picks:
+                message += f"💰 **Top Cash-Secured Puts ({len(csp_picks)})**\n"
+                for pick in csp_picks[:3]:
+                    message += f"\n• **{pick['symbol']}** @ ${pick['strike']:.2f}\n"
+                    message += f"  Premium: ${pick.get('premium', 0):.2f} | ROI: {pick.get('roi_30d', 0):.1%}\n"
+                    if pick.get('iv'):
+                        message += f"  IV: {pick['iv']:.1%} | Score: {pick.get('score', 0):.2f}\n"
+
+                    # Add rationale if available
+                    if pick.get('id') and pick['id'] in rationales_map:
+                        rationale = rationales_map[pick['id']]
+                        if len(rationale) > 150:
+                            rationale = rationale[:147] + "..."
+                        message += f"  💡 {rationale}\n"
+
+            message += f"\n📊 Dashboard: http://157.245.214.224:3000"
+            message += f"\n🤖 AI rationales powered by Claude"
+
+            # Send message
+            return self.telegram.send_message(message)
+
+        except Exception as e:
+            logger.error(f"Error sending alerts: {e}")
+            self.stats['errors'].append(f"Telegram error: {str(e)}")
+            return False
 
     def run(self) -> Dict[str, Any]:
         """
-        Execute the complete daily pipeline.
+        Execute the complete production pipeline.
 
         Returns:
             Dictionary with pipeline results and statistics
         """
-        self.logger.info(f"Starting daily pipeline for {self.asof}")
         start_time = time.time()
 
-        results = {
-            'date': self.asof,
-            'symbols_processed': 0,
-            'cc_picks': [],
-            'csp_picks': [],
-            'errors': [],
-            'alerts_sent': 0,
-            'duration': 0
-        }
+        logger.info("="*60)
+        logger.info("PRODUCTION OPTIONS SCREENING PIPELINE")
+        logger.info("="*60)
+        logger.info(f"Date: {date.today()}")
+        logger.info(f"Screening {len(self.symbols)} symbols")
+        logger.info("-"*60)
 
-        try:
-            # Step 1: Fetch and store market data
-            self.logger.info("Step 1: Fetching market data...")
-            market_data = self._fetch_market_data()
-            results['symbols_processed'] = len(market_data['symbols_data'])
+        all_picks = []
 
-            # Step 2: Calculate technical indicators and IV metrics
-            self.logger.info("Step 2: Calculating indicators and metrics...")
-            enriched_data = self._calculate_indicators(market_data)
-
-            # Step 3: Run screeners
-            self.logger.info("Step 3: Running option screeners...")
-            screening_results = self._run_screeners(enriched_data)
-            results['cc_picks'] = screening_results['cc_picks']
-            results['csp_picks'] = screening_results['csp_picks']
-
-            # Step 4: Score and rank picks
-            self.logger.info("Step 4: Scoring and ranking picks...")
-            ranked_picks = self._score_picks(screening_results)
-
-            # Step 5: Save to database
-            self.logger.info("Step 5: Saving picks to database...")
-            pick_ids = self._save_picks(ranked_picks)
-
-            # Step 6: Generate AI rationales (optional)
-            if self.claude_service and len(pick_ids) > 0:
-                self.logger.info("Step 6: Generating AI rationales...")
-                self._generate_rationales(ranked_picks)
-
-            # Step 7: Send alerts (optional)
-            if self.telegram_service and len(ranked_picks['top_picks']) > 0:
-                self.logger.info("Step 7: Sending Telegram alerts...")
-                alerts_sent = self._send_alerts(ranked_picks['top_picks'])
-                results['alerts_sent'] = alerts_sent
-
-            # Step 8: Generate summary statistics
-            self.logger.info("Step 8: Generating summary...")
-            summary = self._generate_summary()
-            results['summary'] = summary
-
-        except Exception as e:
-            self.logger.error(f"Pipeline error: {e}")
-            results['errors'].append(str(e))
-
-        # Record duration
-        results['duration'] = time.time() - start_time
-        self.logger.info(f"Pipeline completed in {results['duration']:.2f} seconds")
-
-        return results
-
-    def _fetch_market_data(self) -> Dict[str, Any]:
-        """
-        Fetch market data from Polygon API.
-
-        Returns:
-            Dictionary with symbols_data, options_chains, and earnings_dates
-        """
-        symbols_data = {}
-        options_chains = {}
-        earnings_dates = {}
-
+        # Screen each symbol
         for symbol in self.symbols:
+            self.stats['symbols_attempted'] += 1
+
             try:
-                # Update symbol in database
-                self.symbols_dao.upsert_symbol(symbol)
+                result = self.screen_symbol_with_retry(symbol)
 
-                # Fetch price data (returns dict with symbol as key)
-                prices = self.polygon_client.get_daily_prices([symbol], self.asof)
-                if symbol in prices:
-                    price_data = prices[symbol]
-                    symbols_data[symbol] = price_data
+                if result['cc_picks'] or result['csp_picks']:
+                    self.stats['symbols_succeeded'] += 1
+                    all_picks.extend(result['cc_picks'])
+                    all_picks.extend(result['csp_picks'])
+                else:
+                    self.stats['symbols_failed'] += 1
 
-                    # Store price data
-                    self.prices_dao.insert_prices([{
-                        'symbol': symbol,
-                        'asof': self.asof,
-                        'close': price_data['close'],
-                        'volume': price_data.get('volume')
-                    }])
-
-                # Fetch options chain
-                chain = self.polygon_client.get_option_chain(symbol, self.asof)
-                if chain:
-                    options_chains[symbol] = chain
-
-                    # Store options data
-                    options_to_store = []
-                    for option in chain:
-                        options_to_store.append({
-                            'symbol': symbol,
-                            'asof': self.asof,
-                            'expiry': option['expiry'],
-                            'side': option['side'],
-                            'strike': option['strike'],
-                            'bid': option['bid'],
-                            'ask': option['ask'],
-                            'mid': option['mid'],
-                            'delta': option['delta'],
-                            'iv': option['iv'],
-                            'oi': option['oi'],
-                            'vol': option['vol'],
-                            'dte': option['dte']
-                        })
-
-                    if options_to_store:
-                        self.options_dao.insert_options_chain(options_to_store)
-
-                # Fetch earnings date (mock for now)
-                earnings_date = None  # Would fetch from API
-                if earnings_date:
-                    earnings_dates[symbol] = earnings_date
-                    self.earnings_dao.upsert_earnings_date(symbol, earnings_date)
+                # Rate limiting
+                time.sleep(2)
 
             except Exception as e:
-                self.logger.warning(f"Failed to fetch data for {symbol}: {e}")
-                continue
+                logger.error(f"Fatal error screening {symbol}: {e}")
+                self.stats['symbols_failed'] += 1
+                self.stats['errors'].append(f"{symbol}: {str(e)}")
+
+        # Sort all picks by score
+        all_picks.sort(key=lambda x: x['score'], reverse=True)
+
+        # Separate by strategy
+        cc_picks = [p for p in all_picks if p['strategy'] == 'CC']
+        csp_picks = [p for p in all_picks if p['strategy'] == 'CSP']
+
+        self.stats['total_picks'] = len(all_picks)
+        self.stats['cc_picks'] = len(cc_picks)
+        self.stats['csp_picks'] = len(csp_picks)
+
+        logger.info(f"\nFound {len(cc_picks)} CC and {len(csp_picks)} CSP picks")
+
+        # Save to database
+        picks_with_ids = []
+        if all_picks:
+            logger.info("\nSaving to database...")
+            saved, picks_with_ids = self.save_picks_to_db(all_picks)
+            logger.info(f"Saved {saved} picks")
+
+            # Generate AI rationales for top picks
+            rationales_count = self.generate_and_save_rationales(picks_with_ids)
+            logger.info(f"Generated {rationales_count} AI rationales")
+
+            # Send alerts
+            logger.info("\nSending alerts...")
+            if self.send_alerts(cc_picks, csp_picks):
+                logger.info("Telegram alert sent successfully")
+            else:
+                logger.warning("Failed to send Telegram alert")
+
+        # Calculate duration
+        duration = time.time() - start_time
+        self.stats['duration'] = duration
+
+        # Print summary
+        logger.info("\n" + "="*60)
+        logger.info("PIPELINE SUMMARY")
+        logger.info("="*60)
+        logger.info(f"Duration: {duration:.2f} seconds")
+        logger.info(f"Symbols attempted: {self.stats['symbols_attempted']}")
+        logger.info(f"Symbols succeeded: {self.stats['symbols_succeeded']}")
+        logger.info(f"Symbols failed: {self.stats['symbols_failed']}")
+        logger.info(f"Total picks: {self.stats['total_picks']}")
+        logger.info(f"CC picks: {self.stats['cc_picks']}")
+        logger.info(f"CSP picks: {self.stats['csp_picks']}")
+        logger.info(f"API calls: {self.stats['api_calls']}")
+
+        if self.stats['errors']:
+            logger.warning(f"\nErrors ({len(self.stats['errors'])}):")
+            for error in self.stats['errors']:
+                logger.warning(f"  - {error}")
+
+        logger.info("="*60)
+        logger.info("PIPELINE COMPLETE")
+        logger.info("="*60)
 
         return {
-            'symbols_data': symbols_data,
-            'options_chains': options_chains,
-            'earnings_dates': earnings_dates
-        }
-
-    def _calculate_indicators(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Calculate technical indicators and IV metrics.
-
-        Args:
-            market_data: Market data from fetch step
-
-        Returns:
-            Enriched market data with indicators
-        """
-        enriched = market_data.copy()
-
-        for symbol, price_data in market_data['symbols_data'].items():
-            try:
-                # Calculate technical indicators (mock historical data for now)
-                mock_historical = [price_data['close'] * (1 + i*0.001) for i in range(-60, 1)]
-                indicators = calculate_technical_indicators(mock_historical)
-
-                # Merge indicators into price data
-                enriched['symbols_data'][symbol].update(indicators)
-
-                # Calculate IV metrics
-                if symbol in market_data['options_chains']:
-                    iv_metrics = calculate_iv_metrics(symbol, self.asof)
-                    enriched['symbols_data'][symbol].update(iv_metrics)
-
-                    # Store IV metrics
-                    self.iv_dao.insert_iv_metrics([{
-                        'symbol': symbol,
-                        'asof': self.asof,
-                        'iv_rank': iv_metrics['iv_rank'],
-                        'iv_percentile': iv_metrics['iv_percentile']
-                    }])
-
-            except Exception as e:
-                self.logger.warning(f"Failed to calculate indicators for {symbol}: {e}")
-                continue
-
-        return enriched
-
-    def _run_screeners(self, enriched_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Run CC and CSP screeners on enriched data.
-
-        Args:
-            enriched_data: Market data with indicators
-
-        Returns:
-            Dictionary with CC and CSP picks
-        """
-        cc_picks = []
-        csp_picks = []
-
-        # Prepare IV metrics data structure
-        iv_metrics_data = {}
-        for symbol, data in enriched_data['symbols_data'].items():
-            iv_metrics_data[symbol] = {
-                'iv_rank': data.get('iv_rank', 50),
-                'iv_percentile': data.get('iv_percentile', 50)
-            }
-
-        # Run CC screener if enabled
-        if CC_ENABLED:
-            cc_picks = screen_multiple_cc(
-                enriched_data['symbols_data'],
-                enriched_data['options_chains'],
-                iv_metrics_data,
-                enriched_data.get('earnings_dates', {})
-            )
-            self.logger.info(f"Found {len(cc_picks)} CC picks")
-
-        # Run CSP screener if enabled
-        if CSP_ENABLED:
-            csp_picks = screen_multiple_csp(
-                enriched_data['symbols_data'],
-                enriched_data['options_chains'],
-                iv_metrics_data,
-                enriched_data.get('earnings_dates', {})
-            )
-            self.logger.info(f"Found {len(csp_picks)} CSP picks")
-
-        return {
+            'success': self.stats['symbols_failed'] < self.stats['symbols_attempted'],
+            'stats': self.stats,
             'cc_picks': cc_picks,
             'csp_picks': csp_picks
         }
 
-    def _score_picks(self, screening_results: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Score and rank all picks.
 
-        Args:
-            screening_results: CC and CSP picks from screeners
-
-        Returns:
-            Dictionary with ranked picks and top picks
-        """
-        # Score CC picks
-        cc_ranked = rank_cc_picks(screening_results['cc_picks'])
-
-        # Score CSP picks
-        csp_ranked = rank_csp_picks(screening_results['csp_picks'])
-
-        # Combine and get top picks
-        all_picks = cc_ranked + csp_ranked
-        all_picks.sort(key=lambda x: x.get('score', 0), reverse=True)
-
-        # Select top picks for alerts
-        top_picks = all_picks[:MAX_PICKS_TO_ALERT]
-
-        return {
-            'cc_picks': cc_ranked,
-            'csp_picks': csp_ranked,
-            'all_picks': all_picks,
-            'top_picks': top_picks
-        }
-
-    def _save_picks(self, ranked_picks: Dict[str, Any]) -> List[int]:
-        """
-        Save picks to database.
-
-        Args:
-            ranked_picks: Ranked picks from scoring step
-
-        Returns:
-            List of inserted pick IDs
-        """
-        all_picks = ranked_picks['all_picks']
-
-        # Add asof date to each pick
-        for pick in all_picks:
-            pick['asof'] = self.asof
-
-        # Insert picks and get IDs
-        pick_ids = self.picks_dao.insert_picks(all_picks)
-
-        # Update picks with IDs for later use
-        for pick, pick_id in zip(all_picks, pick_ids):
-            pick['id'] = pick_id
-
-        self.logger.info(f"Saved {len(pick_ids)} picks to database")
-        return pick_ids
-
-    def _generate_rationales(self, ranked_picks: Dict[str, Any]) -> None:
-        """
-        Generate AI rationales for top picks.
-
-        Args:
-            ranked_picks: Ranked picks with IDs
-        """
-        try:
-            top_picks = ranked_picks['top_picks']
-            rationales = self.claude_service.generate_batch_rationales(top_picks)
-
-            # Save rationales to database
-            for pick_id, rationale in rationales.items():
-                self.rationales_dao.insert_rationale(pick_id, rationale)
-
-            self.logger.info(f"Generated {len(rationales)} AI rationales")
-
-        except Exception as e:
-            self.logger.error(f"Failed to generate rationales: {e}")
-
-    def _send_alerts(self, top_picks: List[Dict[str, Any]]) -> int:
-        """
-        Send Telegram alerts for top picks.
-
-        Args:
-            top_picks: List of top picks to alert
-
-        Returns:
-            Number of alerts sent
-        """
-        try:
-            # Get rationales for picks
-            rationales = {}
-            for pick in top_picks:
-                pick_id = pick.get('id')
-                if pick_id:
-                    rationale = self.rationales_dao.get_rationale(pick_id)
-                    if rationale:
-                        rationales[pick_id] = rationale
-
-            # Send picks via Telegram
-            results = self.telegram_service.send_picks(top_picks, rationales)
-
-            # Record alerts in database
-            for pick in top_picks:
-                pick_id = pick.get('id')
-                if pick_id and pick['symbol'] in results['sent']:
-                    self.alerts_dao.mark_alert_sent(pick_id, 'telegram')
-
-            return len(results['sent'])
-
-        except Exception as e:
-            self.logger.error(f"Failed to send alerts: {e}")
-            return 0
-
-    def _generate_summary(self) -> Dict[str, Any]:
-        """
-        Generate daily summary statistics.
-
-        Returns:
-            Summary dictionary
-        """
-        summary = self.stats_dao.get_daily_summary(self.asof)
-
-        # Send summary via Telegram if enabled
-        if self.telegram_service:
-            try:
-                self.telegram_service.send_daily_summary(summary)
-            except Exception as e:
-                self.logger.error(f"Failed to send summary: {e}")
-
-        return summary
-
-
-def run_daily_job(symbols: List[str] = None, asof: date = None) -> Dict[str, Any]:
+def run_daily_job(
+    symbols: List[str] = None,
+    max_retries: int = 3,
+    retry_delay: int = 5
+) -> Dict[str, Any]:
     """
     Main entry point for daily job execution.
 
     Args:
-        symbols: Optional list of symbols to screen
-        asof: Optional date to run for (defaults to today)
+        symbols: Optional list of symbols to screen (defaults to production symbols)
+        max_retries: Maximum number of retries for API failures (default: 3)
+        retry_delay: Delay between retries in seconds (default: 5)
 
     Returns:
         Pipeline execution results
     """
-    setup_logging()
-    pipeline = DailyPipeline(symbols, asof)
-    return pipeline.run()
+    # Setup logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+
+    # Get API key
+    api_key = os.getenv('POLYGON_API_KEY')
+    if not api_key:
+        logger.error("No POLYGON_API_KEY found in environment")
+        return {
+            'success': False,
+            'error': 'Missing POLYGON_API_KEY',
+            'stats': {}
+        }
+
+    try:
+        # Create and run pipeline
+        pipeline = ProductionPipeline(
+            api_key=api_key,
+            symbols=symbols,
+            max_retries=max_retries,
+            retry_delay=retry_delay
+        )
+
+        return pipeline.run()
+
+    except Exception as e:
+        logger.error(f"Pipeline fatal error: {e}")
+
+        # Try to send error notification
+        try:
+            telegram = TelegramService()
+            telegram.send_message(
+                f"❌ **Pipeline Fatal Error**\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"📅 {datetime.now()}\n"
+                f"⚠️ Error: {str(e)}\n"
+                f"━━━━━━━━━━━━━━━━━━━━"
+            )
+        except:
+            pass  # Fail silently if Telegram also fails
+
+        return {
+            'success': False,
+            'error': str(e),
+            'stats': {}
+        }
 
 
 # Legacy support
 def run_daily(asof: date = None):
     """Legacy function name for backward compatibility."""
-    return run_daily_job(asof=asof)
+    return run_daily_job()
 
 
 if __name__ == "__main__":
-    # Run with mock data for testing
+    # Run production pipeline
     results = run_daily_job()
-    print(f"Pipeline completed: {len(results.get('cc_picks', []))} CC picks, "
-          f"{len(results.get('csp_picks', []))} CSP picks")
+
+    if results.get('success'):
+        print(f"\n✅ Pipeline completed successfully!")
+        print(f"Total picks: {results['stats']['total_picks']}")
+        print(f"CC picks: {results['stats']['cc_picks']}")
+        print(f"CSP picks: {results['stats']['csp_picks']}")
+    else:
+        print(f"\n❌ Pipeline failed!")
+        if 'error' in results:
+            print(f"Error: {results['error']}")
+        sys.exit(1)
