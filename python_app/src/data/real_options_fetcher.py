@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Real options data fetcher using Polygon.io Options API.
+Real options data fetcher using Massive.com Options API (formerly Polygon.io).
 Uses proper options endpoints for Options Advanced account.
 """
 
@@ -15,12 +15,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class RealOptionsFetcher:
-    """Fetches real options data from Polygon.io Options API."""
+    """Fetches real options data from Massive.com Options API (formerly Polygon.io)."""
 
     def __init__(self, api_key: str):
-        """Initialize with Polygon API key."""
+        """Initialize with Massive API key (Polygon API keys still work)."""
         self.api_key = api_key
-        self.base_url = "https://api.polygon.io"
+        self.base_url = "https://api.massive.com"
         self.session = requests.Session()
         self.session.headers.update({
             'Authorization': f'Bearer {api_key}'
@@ -215,7 +215,8 @@ class RealOptionsFetcher:
 
         candidates = []
 
-        for contract in contracts[:5]:  # Limit to 5 for rate limiting
+        # Process up to 20 contracts (no rate limiting needed with Options Advanced)
+        for contract in contracts[:20]:
             ticker = contract['ticker']
 
             # Get quote
@@ -273,9 +274,6 @@ class RealOptionsFetcher:
 
                 candidates.append(candidate)
 
-                # Rate limiting
-                time.sleep(0.5)
-
         return candidates
 
     def find_cash_secured_put_candidates(self, symbol: str, stock_price: float,
@@ -302,7 +300,8 @@ class RealOptionsFetcher:
 
         candidates = []
 
-        for contract in contracts[:5]:  # Limit to 5 for rate limiting
+        # Process up to 20 contracts (no rate limiting needed with Options Advanced)
+        for contract in contracts[:20]:
             ticker = contract['ticker']
 
             # Get quote
@@ -360,9 +359,6 @@ class RealOptionsFetcher:
 
                 candidates.append(candidate)
 
-                # Rate limiting
-                time.sleep(0.5)
-
         return candidates
 
 
@@ -373,7 +369,7 @@ def test_real_options():
 
     api_key = os.getenv('POLYGON_API_KEY')
     if not api_key:
-        logger.error("No Polygon API key found")
+        logger.error("No POLYGON_API_KEY found (Massive.com API key)")
         return
 
     fetcher = RealOptionsFetcher(api_key)

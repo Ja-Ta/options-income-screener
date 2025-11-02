@@ -1,6 +1,20 @@
 symbol,name,sector
-AAPL,Apple Inc.,Technology
-MSFT,Microsoft Corporation,Technology
 SPY,SPDR S&P 500 ETF,ETF
 QQQ,Invesco QQQ Trust,ETF
+IWM,iShares Russell 2000 ETF,ETF
+DIA,SPDR Dow Jones Industrial Average ETF,ETF
+AAPL,Apple Inc.,Technology
+MSFT,Microsoft Corporation,Technology
+GOOGL,Alphabet Inc.,Technology
+AMZN,Amazon.com Inc.,Technology
+META,Meta Platforms Inc.,Technology
 NVDA,NVIDIA Corporation,Technology
+TSLA,Tesla Inc.,Automotive
+AMD,Advanced Micro Devices Inc.,Technology
+JPM,JPMorgan Chase & Co.,Financials
+PLTR,Palantir Technologies Inc.,Technology
+COIN,Coinbase Global Inc.,Financials
+NBIS,Nebius Group N.V.,Technology
+SOFI,SoFi Technologies Inc.,Financials
+HOOD,Robinhood Markets Inc.,Financials
+GME,GameStop Corp.,Consumer

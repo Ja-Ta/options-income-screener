@@ -21,7 +21,7 @@ Claude’s job is to **extend, debug, document, and optimize** code in this repo
 | Layer | Technology | Purpose |
 |-------|-------------|----------|
 | **Backend / ETL** | **Python 3.12 (Ubuntu 24.04 venv)** | Ingestion, screening, scoring, summarization |
-| **Data Feed** | Polygon API | Stock & option chain data |
+| **Data Feed** | Massive.com API (formerly Polygon) | Stock & option chain data |
 | **Database** | SQLite (WAL mode) | Persistent store for daily data & picks |
 | **Web UI** | Node.js + Express | Read-only dashboard for screened picks |
 | **Summaries** | Anthropic Claude API | Generate human-readable rationales |
@@ -186,7 +186,7 @@ When using Claude Code interactively:
 | Category | Tool | Example Test |
 |-----------|------|--------------|
 | Unit | `pytest` | `test_iv_metrics.py` validates IV Rank percentile math |
-| Integration | Local SQLite | Mocked Polygon/Claude responses |
+| Integration | Local SQLite | Mocked Massive/Claude responses |
 | API | `supertest` / `curl` | `/api/picks?date=...` returns JSON 200 |
 | UI smoke | Browser or curl | Static index renders title properly |
 

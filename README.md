@@ -13,7 +13,7 @@ This screener helps identify high-quality options trading opportunities for inco
 - **Python 3.12**: Data ingestion, screening, and scoring algorithms
 - **SQLite**: Persistent storage with WAL mode for concurrent access
 - **Node.js/Express**: Web UI and REST API
-- **Polygon.io**: Market data and option chains
+- **Massive.com** (formerly Polygon.io): Market data and option chains
 - **Claude AI**: Human-readable pick summaries
 - **Telegram Bot**: Daily alerts for top opportunities
 
@@ -74,7 +74,7 @@ See **[Management Scripts](MANAGEMENT_SCRIPTS.md)** for detailed operational gui
 ```
 ├── python_app/          # Python backend
 │   └── src/
-│       ├── data/       # Polygon API client
+│       ├── data/       # Massive.com API client (market data)
 │       ├── features/   # Technical & IV metrics
 │       ├── screeners/  # CC & CSP screening logic
 │       ├── scoring/    # Scoring algorithms
@@ -104,7 +104,7 @@ See **[Management Scripts](MANAGEMENT_SCRIPTS.md)** for detailed operational gui
 **Production Ready ✅** - Last Updated: November 2, 2025
 
 **Core System**
-- ✅ Real Polygon Options API integration (Options Advanced tier)
+- ✅ Real Massive.com Options API integration (Options Advanced tier, formerly Polygon.io)
 - ✅ Unified SQLite database with WAL mode (data/screener.db)
 - ✅ Web dashboard at http://157.245.214.224:3000
 - ✅ Automated daily screening via cron (10 AM ET, weekdays)
@@ -113,7 +113,7 @@ See **[Management Scripts](MANAGEMENT_SCRIPTS.md)** for detailed operational gui
 - ✅ Real-time options screening with Greeks and IV
 
 **Working Features 🚀**
-- ✅ 13-symbol universe (SPY, QQQ, IWM, DIA, AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA, AMD, JPM)
+- ✅ 19-symbol universe loaded from CSV (SPY, QQQ, IWM, DIA, AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA, AMD, JPM, PLTR, COIN, NBIS, SOFI, HOOD, GME)
 - ✅ IV Rank and IV Percentile calculations
 - ✅ Technical indicators (SMA, momentum, volatility)
 - ✅ Risk-adjusted scoring algorithms
@@ -125,10 +125,15 @@ See **[Management Scripts](MANAGEMENT_SCRIPTS.md)** for detailed operational gui
 - ✅ Quality monitoring and error handling
 
 **Recent Improvements** (Nov 2, 2025)
-- Fixed 4 critical AI rationale quality issues
-- Unified database architecture
-- Enhanced rationale generation (no truncation, correct symbols)
-- Added management scripts for easy server control
+- 🚀 Migrated to Massive.com API (formerly Polygon.io)
+- 🚀 Optimized for unlimited API tier (5→20 contracts, removed rate limits)
+- 🚀 Expanded universe to 19 symbols (added PLTR, COIN, NBIS, SOFI, HOOD, GME)
+- 🚀 83% faster screening (31.7 seconds for 19 symbols)
+- 🚀 Symbol management via CSV (no code changes to add symbols)
+- ✅ Fixed 4 critical AI rationale quality issues
+- ✅ Unified database architecture
+- ✅ Enhanced rationale generation (no truncation, correct symbols)
+- ✅ Added management scripts for easy server control
 - Comprehensive documentation updates
 
 ## 📝 License

@@ -8,6 +8,7 @@ Python 3.12 compatible following CLAUDE.md standards.
 import time
 import os
 import sys
+import csv
 import sqlite3
 import logging
 from datetime import date, datetime, timedelta
@@ -34,9 +35,35 @@ class ProductionPipeline:
     """
     Production-ready pipeline for daily options screening.
 
-    Integrates real Polygon API data with error handling, retry logic,
-    and comprehensive logging.
+    Integrates real Massive.com API data (formerly Polygon) with error handling,
+    retry logic, and comprehensive logging.
     """
+
+    @staticmethod
+    def load_universe_symbols(universe_file: str = "python_app/src/data/universe.csv") -> List[str]:
+        """
+        Load symbols from universe CSV file.
+
+        Args:
+            universe_file: Path to universe CSV file (relative to project root)
+
+        Returns:
+            List of symbol strings
+        """
+        symbols = []
+        try:
+            with open(universe_file, 'r') as f:
+                reader = csv.DictReader(f)
+                symbols = [row['symbol'] for row in reader]
+            logger.info(f"Loaded {len(symbols)} symbols from {universe_file}")
+        except FileNotFoundError:
+            logger.error(f"Universe file not found: {universe_file}")
+            raise
+        except Exception as e:
+            logger.error(f"Error loading universe file: {e}")
+            raise
+
+        return symbols
 
     def __init__(
         self,
@@ -49,7 +76,7 @@ class ProductionPipeline:
         Initialize the production pipeline.
 
         Args:
-            api_key: Polygon API key
+            api_key: Massive.com API key (Polygon API keys still work)
             symbols: List of symbols to screen (defaults to production symbols)
             max_retries: Maximum number of retries for API failures
             retry_delay: Delay between retries in seconds
@@ -58,15 +85,8 @@ class ProductionPipeline:
         self.max_retries = max_retries
         self.retry_delay = retry_delay
 
-        # Default production symbols - high liquidity options-friendly stocks
-        self.symbols = symbols or [
-            # Major ETFs
-            'SPY', 'QQQ', 'IWM', 'DIA',
-            # Mega-cap Tech
-            'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA',
-            # Other High-Volume
-            'TSLA', 'AMD', 'JPM'
-        ]
+        # Load symbols from universe.csv or use provided symbols
+        self.symbols = symbols or self.load_universe_symbols()
 
         # Initialize services
         self.fetcher = RealOptionsFetcher(api_key)
@@ -514,8 +534,8 @@ class ProductionPipeline:
                 else:
                     self.stats['symbols_failed'] += 1
 
-                # Rate limiting
-                time.sleep(2)
+                # Minimal delay for API politeness (no rate limits with Options Advanced)
+                time.sleep(0.1)
 
             except Exception as e:
                 logger.error(f"Fatal error screening {symbol}: {e}")
