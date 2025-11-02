@@ -46,6 +46,8 @@ The Options Income Screener is now fully functional with AI-powered insights. Th
 - Formatted pick alerts with AI rationales
 - Top 3 CC and CSP picks
 - AI-generated insights included (truncated to 150 chars)
+- **Multi-destination support** (groups, channels, and individuals)
+- Simultaneous alerts to multiple chat destinations
 
 ### 6. Claude AI Integration
 - Successfully integrated Anthropic Claude API
@@ -127,10 +129,15 @@ sqlite3 data/screener.db "SELECT * FROM picks ORDER BY created_at DESC LIMIT 10;
 - **Main Script:** `python_app/real_polygon_screening.py`
 - **Options Fetcher:** `python_app/src/data/real_options_fetcher.py`
 - **Claude Service:** `python_app/src/services/claude_service.py`
-- **Claude Test:** `python_app/test_claude_integration.py`
+- **Telegram Service:** `python_app/src/services/telegram_service.py`
+- **Test Scripts:**
+  - `python_app/test_claude_integration.py` - Test AI rationales
+  - `python_app/test_telegram_multi.py` - Test multi-destination alerts
+  - `python_app/get_telegram_group_id.py` - Find group/channel IDs
 - **Dashboard:** `node_ui/src/server.js`
 - **Database:** `data/screener.db`
 - **Config:** `.env` (API keys configured including ANTHROPIC_API_KEY)
+- **Documentation:** `TELEGRAM_SETUP.md` - Telegram configuration guide
 
 ## 🎯 Immediate Action Items
 

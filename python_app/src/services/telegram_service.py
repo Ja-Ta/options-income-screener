@@ -7,25 +7,44 @@ Python 3.12 compatible following CLAUDE.md standards.
 
 import os
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 import requests
-from ..config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from ..config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_CHAT_IDS
 from ..utils.logging import get_logger
 
 
 class TelegramService:
     """Service for sending alerts via Telegram Bot API."""
 
-    def __init__(self, bot_token: Optional[str] = None, chat_id: Optional[str] = None):
+    def __init__(self, bot_token: Optional[str] = None, chat_id: Optional[Union[str, List[str]]] = None):
         """
         Initialize Telegram service.
 
         Args:
             bot_token: Telegram bot token (defaults to env var)
-            chat_id: Telegram chat/channel ID (defaults to env var)
+            chat_id: Telegram chat/channel ID(s) - can be single ID or list (defaults to env vars)
         """
         self.bot_token = bot_token or TELEGRAM_BOT_TOKEN
-        self.chat_id = chat_id or TELEGRAM_CHAT_ID
+
+        # Handle multiple chat IDs
+        if chat_id:
+            # If a single chat_id is provided
+            if isinstance(chat_id, str):
+                self.chat_ids = [chat_id]
+            else:
+                self.chat_ids = chat_id
+        else:
+            # Use multiple IDs if configured, otherwise fall back to single ID
+            if TELEGRAM_CHAT_IDS:
+                self.chat_ids = [cid.strip() for cid in TELEGRAM_CHAT_IDS if cid.strip()]
+            elif TELEGRAM_CHAT_ID:
+                self.chat_ids = [TELEGRAM_CHAT_ID]
+            else:
+                self.chat_ids = []
+
+        # Keep backward compatibility
+        self.chat_id = self.chat_ids[0] if self.chat_ids else None
+
         self.logger = get_logger()
         self.base_url = f"https://api.telegram.org/bot{self.bot_token}"
         self.is_mock = not self.bot_token or self.bot_token.startswith("mock_")
@@ -77,47 +96,65 @@ class TelegramService:
 
         return message
 
-    def send_message(self, text: str, parse_mode: str = "Markdown") -> bool:
+    def send_message(self, text: str, parse_mode: str = "Markdown", chat_ids: Optional[List[str]] = None) -> bool:
         """
-        Send a message to Telegram.
+        Send a message to Telegram chat(s).
 
         Args:
             text: Message text to send
             parse_mode: Telegram parse mode (Markdown or HTML)
+            chat_ids: Optional list of specific chat IDs to send to (defaults to all configured)
 
         Returns:
-            True if sent successfully, False otherwise
+            True if sent successfully to at least one destination, False otherwise
         """
         if self.is_mock:
             self.logger.info(f"MOCK Telegram message:\n{text}")
             return True
 
-        try:
-            url = f"{self.base_url}/sendMessage"
-            payload = {
-                "chat_id": self.chat_id,
-                "text": text,
-                "parse_mode": parse_mode,
-                "disable_web_page_preview": True
-            }
-
-            response = requests.post(url, json=payload, timeout=10)
-            response.raise_for_status()
-
-            result = response.json()
-            if result.get('ok'):
-                self.logger.info(f"Telegram message sent successfully")
-                return True
-            else:
-                self.logger.error(f"Telegram API error: {result}")
-                return False
-
-        except requests.exceptions.RequestException as e:
-            self.logger.error(f"Failed to send Telegram message: {e}")
+        # Use provided chat_ids or default to all configured IDs
+        target_chat_ids = chat_ids or self.chat_ids
+        if not target_chat_ids:
+            self.logger.error("No chat IDs configured for Telegram")
             return False
-        except Exception as e:
-            self.logger.error(f"Unexpected error sending Telegram message: {e}")
-            return False
+
+        success_count = 0
+        failed_chats = []
+
+        for chat_id in target_chat_ids:
+            try:
+                url = f"{self.base_url}/sendMessage"
+                payload = {
+                    "chat_id": chat_id,
+                    "text": text,
+                    "parse_mode": parse_mode,
+                    "disable_web_page_preview": True
+                }
+
+                response = requests.post(url, json=payload, timeout=10)
+                response.raise_for_status()
+
+                result = response.json()
+                if result.get('ok'):
+                    chat_type = "group" if chat_id.startswith("-") else "user"
+                    self.logger.info(f"Telegram message sent to {chat_type} {chat_id}")
+                    success_count += 1
+                else:
+                    self.logger.error(f"Telegram API error for chat {chat_id}: {result}")
+                    failed_chats.append(chat_id)
+
+            except requests.exceptions.RequestException as e:
+                self.logger.error(f"Failed to send to chat {chat_id}: {e}")
+                failed_chats.append(chat_id)
+            except Exception as e:
+                self.logger.error(f"Unexpected error sending to chat {chat_id}: {e}")
+                failed_chats.append(chat_id)
+
+        if failed_chats:
+            self.logger.warning(f"Failed to send to {len(failed_chats)} chat(s): {', '.join(failed_chats)}")
+
+        # Return True if at least one message was sent successfully
+        return success_count > 0
 
     def send_picks(self, picks: List[Dict[str, Any]], rationales: Dict[int, str] = None) -> Dict[str, Any]:
         """

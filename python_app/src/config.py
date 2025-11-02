@@ -17,6 +17,8 @@ POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+# Support multiple chat IDs (comma-separated) for groups and individuals
+TELEGRAM_CHAT_IDS = os.getenv("TELEGRAM_CHAT_IDS", "").split(",") if os.getenv("TELEGRAM_CHAT_IDS") else []
 
 # Database
 DB_URL = os.getenv("DATABASE_URL", "data/screener.db")
