@@ -20,6 +20,20 @@ CC_DTE_RANGE = (30, 45)  # Days to expiration range for CC
 CSP_DELTA_RANGE = (0.25, 0.30)  # Put delta range for CSP strategy
 CSP_DTE_RANGE = (30, 45)  # Days to expiration range for CSP
 
+# ===== Greeks Thresholds =====
+# Theta (time decay per day)
+THETA_OPTIMAL_RANGE = (0.05, 0.15)  # Optimal absolute theta for income (daily decay)
+THETA_MIN = 0.03  # Minimum absolute theta to consider
+THETA_MAX = 0.25  # Maximum absolute theta (too risky above this)
+
+# Gamma (delta stability)
+GAMMA_LOW_THRESHOLD = 0.001  # Low gamma = stable delta (preferred)
+GAMMA_HIGH_THRESHOLD = 0.003  # High gamma = unstable delta (penalty)
+
+# Vega (IV sensitivity)
+VEGA_HIGH_THRESHOLD = 0.20  # High vega for high IV environments
+VEGA_LOW_THRESHOLD = 0.08  # Low vega for low IV environments
+
 # ===== Volatility & IV Filters =====
 CC_MIN_IVR = 40  # Minimum IV Rank for covered calls (40%)
 CSP_MIN_IVR = 50  # Minimum IV Rank for cash-secured puts (50%)
@@ -43,21 +57,46 @@ TREND_SMA_PERIODS = {
     'slow': 200
 }
 
+# Trend strength thresholds (-1 to 1 scale)
+TREND_STRENGTH_STRONG = 0.5       # > 0.5 = strong uptrend
+TREND_STRENGTH_WEAK = -0.5        # < -0.5 = strong downtrend
+# Between -0.5 and 0.5 = neutral/mixed
+
+# Trend stability thresholds (0 to 1 scale)
+TREND_STABILITY_HIGH = 0.7        # > 0.7 = very stable trend
+TREND_STABILITY_LOW = 0.4         # < 0.4 = volatile/unstable
+# Between 0.4 and 0.7 = moderate stability
+
+# RSI thresholds (0 to 100 scale)
+RSI_OVERBOUGHT = 70               # RSI > 70 = overbought
+RSI_OVERSOLD = 30                 # RSI < 30 = oversold
+RSI_NEUTRAL = 50                  # RSI = 50 = neutral momentum
+
+# Historical data requirements
+HISTORICAL_BARS_REQUIRED = 200    # Minimum bars for SMA200 calculation
+HISTORICAL_DAYS_TO_FETCH = 300    # Calendar days to fetch (ensures 200+ trading days, accounting for weekends/holidays)
+
 # ===== Scoring Weights =====
-# Covered Calls scoring weights
+# Covered Calls scoring weights (must sum to 1.0)
 CC_SCORING_WEIGHTS = {
-    'iv_rank': 0.40,
-    'roi_30d': 0.30,
-    'trend_strength': 0.20,
-    'dividend_yield': 0.10
+    'iv_rank': 0.25,          # IV environment importance
+    'roi_30d': 0.30,          # Return on investment
+    'trend_strength': 0.15,   # Trend direction
+    'dividend_yield': 0.05,   # Dividend bonus
+    'theta': 0.10,            # Time decay value
+    'gamma': 0.05,            # Delta stability
+    'vega': 0.10              # IV sensitivity match
 }
 
-# Cash-Secured Puts scoring weights
+# Cash-Secured Puts scoring weights (must sum to 1.0)
 CSP_SCORING_WEIGHTS = {
-    'iv_rank': 0.40,
-    'roi_30d': 0.30,
-    'margin_of_safety': 0.20,
-    'trend_stability': 0.10
+    'iv_rank': 0.25,          # IV environment importance
+    'roi_30d': 0.30,          # Return on investment
+    'margin_of_safety': 0.15, # Downside protection
+    'trend_stability': 0.05,  # Trend consistency
+    'theta': 0.10,            # Time decay value
+    'gamma': 0.05,            # Delta stability
+    'vega': 0.10              # IV sensitivity match
 }
 
 # ===== Penalties & Adjustments =====

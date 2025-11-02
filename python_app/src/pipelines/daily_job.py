@@ -25,6 +25,10 @@ from ..data.real_options_fetcher import RealOptionsFetcher
 from ..services.telegram_service import TelegramService
 from ..services.claude_service import ClaudeService
 from ..services.monitoring_service import MonitoringService
+from ..scoring.score_cc import score_cc_pick
+from ..scoring.score_csp import score_csp_pick
+from ..features.technicals import compute_technical_features
+from ..constants import HISTORICAL_DAYS_TO_FETCH
 
 
 # Configure logging
@@ -115,51 +119,19 @@ class ProductionPipeline:
 
     def calculate_score(self, option: Dict, strategy: str) -> float:
         """
-        Calculate composite score for an option.
+        Calculate composite score for an option using Greek-enhanced scoring.
 
         Args:
-            option: Option data dictionary
+            option: Option data dictionary with Greeks (delta, theta, gamma, vega)
             strategy: "CC" or "CSP"
 
         Returns:
             Composite score (0-1)
         """
-        score = 0.0
-
-        # ROI component (30%)
-        roi_score = min(option.get('roi_30d', 0) * 10, 1.0) * 0.3
-
-        # IV component (40%)
-        iv = option.get('iv', 0)
         if strategy == 'CC':
-            # Higher IV is better for selling calls
-            iv_score = min(iv * 2, 1.0) * 0.4
+            return score_cc_pick(option)
         else:
-            # Moderate IV is better for CSPs
-            iv_score = min(iv * 2.5, 1.0) * 0.4
-
-        # Moneyness component (20%)
-        moneyness = abs(option.get('moneyness', 0))
-        # Prefer 2-4% OTM
-        if 0.02 <= moneyness <= 0.04:
-            moneyness_score = 1.0 * 0.2
-        elif 0.01 <= moneyness <= 0.05:
-            moneyness_score = 0.7 * 0.2
-        else:
-            moneyness_score = 0.3 * 0.2
-
-        # Delta component (10%)
-        delta = abs(option.get('delta', 0))
-        # Prefer delta around 0.20-0.35
-        if 0.20 <= delta <= 0.35:
-            delta_score = 1.0 * 0.1
-        elif 0.15 <= delta <= 0.40:
-            delta_score = 0.7 * 0.1
-        else:
-            delta_score = 0.3 * 0.1
-
-        score = roi_score + iv_score + moneyness_score + delta_score
-        return min(score, 1.0)
+            return score_csp_pick(option)
 
     def screen_symbol_with_retry(self, symbol: str) -> Dict:
         """
@@ -183,6 +155,35 @@ class ProductionPipeline:
 
                 self.stats['api_calls'] += 1
 
+                # Fetch historical price data for trend analysis
+                historical_data = self.fetcher.get_historical_prices(symbol, days=HISTORICAL_DAYS_TO_FETCH)
+                technical_features = {}
+
+                if historical_data and len(historical_data.get('prices', [])) >= 200:
+                    # Compute technical features including trend indicators
+                    price_data = {
+                        'close': stock_price,
+                        'prices': historical_data['prices'],
+                        'highs': historical_data.get('highs'),
+                        'lows': historical_data.get('lows')
+                    }
+                    technical_features = compute_technical_features(price_data)
+                    self.stats['api_calls'] += 1
+                    logger.info(f"  {symbol} technical features: trend_strength={technical_features.get('trend_strength', 0):.2f}, trend_stability={technical_features.get('trend_stability', 0.5):.2f}")
+                else:
+                    logger.warning(f"  Insufficient historical data for {symbol}, using default values")
+                    # Use default/placeholder values
+                    technical_features = {
+                        'trend_strength': 0,
+                        'trend_stability': 0.5,
+                        'in_uptrend': False,
+                        'below_200sma': False,
+                        'above_support': True,
+                        'sma20': stock_price,
+                        'sma50': stock_price,
+                        'sma200': stock_price
+                    }
+
                 # Find covered calls
                 cc_candidates = self.fetcher.find_covered_call_candidates(symbol, stock_price)
                 cc_picks = []
@@ -191,9 +192,24 @@ class ProductionPipeline:
                     if candidate['mid'] > 0:
                         candidate['strategy'] = 'CC'
                         candidate['premium'] = candidate['mid']
+
+                        # Add fields required by scoring function
+                        candidate['iv_rank'] = candidate.get('iv', 0) * 100  # Convert IV to rank (0-100)
+                        candidate['trend_strength'] = technical_features.get('trend_strength', 0)
+                        candidate['dividend_yield'] = 0  # Placeholder (can be added later via API)
+                        candidate['below_200sma'] = technical_features.get('below_200sma', False)
+
+                        # Determine trend classification
+                        ts = candidate['trend_strength']
+                        if ts > 0.5:
+                            candidate['trend'] = 'uptrend'
+                        elif ts < -0.5:
+                            candidate['trend'] = 'downtrend'
+                        else:
+                            candidate['trend'] = 'neutral'
+
                         candidate['score'] = self.calculate_score(candidate, 'CC')
-                        candidate['trend'] = 'neutral'
-                        candidate['earnings_days'] = 45  # Placeholder
+                        candidate['earnings_days'] = 45  # Placeholder (can be added later via earnings API)
                         cc_picks.append(candidate)
 
                 self.stats['api_calls'] += len(cc_candidates)
@@ -206,9 +222,24 @@ class ProductionPipeline:
                     if candidate['mid'] > 0:
                         candidate['strategy'] = 'CSP'
                         candidate['premium'] = candidate['mid']
+
+                        # Add fields required by scoring function
+                        candidate['iv_rank'] = candidate.get('iv', 0) * 100  # Convert IV to rank (0-100)
+                        candidate['margin_of_safety'] = (stock_price - candidate['strike']) / stock_price if stock_price > 0 else 0
+                        candidate['trend_stability'] = technical_features.get('trend_stability', 0.5)
+                        candidate['in_uptrend'] = technical_features.get('in_uptrend', False)
+
+                        # Determine trend classification
+                        ts = technical_features.get('trend_strength', 0)
+                        if ts > 0.5:
+                            candidate['trend'] = 'uptrend'
+                        elif ts < -0.5:
+                            candidate['trend'] = 'downtrend'
+                        else:
+                            candidate['trend'] = 'neutral'
+
                         candidate['score'] = self.calculate_score(candidate, 'CSP')
-                        candidate['trend'] = 'neutral'
-                        candidate['earnings_days'] = 45  # Placeholder
+                        candidate['earnings_days'] = 45  # Placeholder (can be added later via earnings API)
                         csp_picks.append(candidate)
 
                 self.stats['api_calls'] += len(csp_candidates)
@@ -363,17 +394,21 @@ class ProductionPipeline:
 
             # Add required fields for Claude service
             for pick in top_picks:
-                # Add trend_strength based on trend
-                if pick.get('trend') == 'uptrend':
-                    pick['trend_strength'] = 0.6
-                elif pick.get('trend') == 'neutral':
-                    pick['trend_strength'] = 0
-                else:
-                    pick['trend_strength'] = -0.4
+                # Ensure trend_strength exists (should already be calculated during screening)
+                if 'trend_strength' not in pick:
+                    # Fallback based on trend classification if not already present
+                    if pick.get('trend') == 'uptrend':
+                        pick['trend_strength'] = 0.6
+                    elif pick.get('trend') == 'neutral':
+                        pick['trend_strength'] = 0
+                    else:
+                        pick['trend_strength'] = -0.4
 
-                # Add other fields Claude expects
-                pick['below_200sma'] = False  # Simplified
-                pick['margin_of_safety'] = abs(pick['stock_price'] - pick['strike']) / pick['stock_price']
+                # Add other fields Claude expects (fallbacks if not present)
+                if 'below_200sma' not in pick:
+                    pick['below_200sma'] = False  # Simplified fallback
+                if 'margin_of_safety' not in pick:
+                    pick['margin_of_safety'] = abs(pick['stock_price'] - pick['strike']) / pick['stock_price']
 
             # Generate rationales
             rationales = self.claude.generate_batch_rationales(top_picks)

@@ -6,7 +6,11 @@ Python 3.12 compatible following CLAUDE.md standards.
 """
 
 from typing import Dict, Any, List
-from ..constants import CC_SCORING_WEIGHTS, BELOW_SMA200_PENALTY
+from ..constants import (
+    CC_SCORING_WEIGHTS, BELOW_SMA200_PENALTY,
+    THETA_OPTIMAL_RANGE, GAMMA_LOW_THRESHOLD, GAMMA_HIGH_THRESHOLD,
+    VEGA_HIGH_THRESHOLD, VEGA_LOW_THRESHOLD
+)
 from ..utils.math import zscore
 
 
@@ -40,6 +44,9 @@ def cc_score(
     roi_30d: float,
     trend_strength: float,
     dividend_yield: float = 0.0,
+    theta: float = 0.0,
+    gamma: float = 0.0,
+    vega: float = 0.0,
     below_200sma: bool = False,
     additional_factors: Dict[str, Any] = None
 ) -> float:
@@ -47,7 +54,7 @@ def cc_score(
     Calculate comprehensive score for a covered call pick.
 
     Formula:
-    Base Score = w1*IV_Rank + w2*ROI + w3*Trend + w4*Dividend
+    Base Score = w1*IV_Rank + w2*ROI + w3*Trend + w4*Dividend + w5*Theta + w6*Gamma + w7*Vega
     Final Score = Base Score * Penalties
 
     Args:
@@ -55,6 +62,9 @@ def cc_score(
         roi_30d: 30-day ROI as decimal (e.g., 0.015 for 1.5%)
         trend_strength: Trend strength score (-1 to 1)
         dividend_yield: Annual dividend yield as decimal
+        theta: Theta (time decay per day, as absolute value)
+        gamma: Gamma (delta change per $1 stock move)
+        vega: Vega (price change per 1% IV change)
         below_200sma: Whether stock is below 200-day SMA
         additional_factors: Optional dict with extra scoring factors
 
@@ -76,8 +86,37 @@ def cc_score(
     # Dividend: normalize assuming 0-5% annual yield
     div_component = min(dividend_yield / 0.05, 1.0) * weights['dividend_yield']
 
+    # Theta: normalize assuming 0.03-0.25 range, optimal 0.05-0.15
+    theta_abs = abs(theta)
+    theta_optimal_min, theta_optimal_max = THETA_OPTIMAL_RANGE
+    if theta_optimal_min <= theta_abs <= theta_optimal_max:
+        theta_component = 1.0 * weights['theta']
+    elif theta_abs < theta_optimal_min:
+        theta_component = (theta_abs / theta_optimal_min) * weights['theta']
+    else:
+        theta_component = max(0.3, 1.0 - (theta_abs - theta_optimal_max) / 0.15) * weights['theta']
+
+    # Gamma: prefer low gamma (more stable), penalize high gamma
+    if gamma <= GAMMA_LOW_THRESHOLD:
+        gamma_component = 1.0 * weights['gamma']
+    elif gamma <= GAMMA_HIGH_THRESHOLD:
+        gamma_component = 0.7 * weights['gamma']
+    else:
+        gamma_component = 0.3 * weights['gamma']
+
+    # Vega: match to IV environment
+    if iv_rank > 70 and vega > VEGA_HIGH_THRESHOLD:
+        vega_component = 1.0 * weights['vega']  # High vega in high IV = excellent
+    elif iv_rank > 70 and vega > VEGA_LOW_THRESHOLD:
+        vega_component = 0.8 * weights['vega']
+    elif iv_rank < 30 and vega < VEGA_LOW_THRESHOLD:
+        vega_component = 0.9 * weights['vega']  # Low vega in low IV = good stability
+    else:
+        vega_component = 0.6 * weights['vega']  # Moderate match
+
     # Calculate base score
-    base_score = iv_component + roi_component + trend_component + div_component
+    base_score = (iv_component + roi_component + trend_component + div_component +
+                  theta_component + gamma_component + vega_component)
 
     # Apply penalties and bonuses
     final_score = base_score
@@ -125,6 +164,11 @@ def score_cc_pick(pick: Dict[str, Any]) -> float:
     dividend_yield = pick.get('dividend_yield', 0)
     below_200sma = pick.get('below_200sma', False)
 
+    # Extract Greeks
+    theta = pick.get('theta', 0.0)
+    gamma = pick.get('gamma', 0.0)
+    vega = pick.get('vega', 0.0)
+
     # Prepare additional factors
     additional = {
         'oi': pick.get('oi', 0),
@@ -141,6 +185,9 @@ def score_cc_pick(pick: Dict[str, Any]) -> float:
         roi_30d=roi_30d,
         trend_strength=trend_strength,
         dividend_yield=dividend_yield,
+        theta=theta,
+        gamma=gamma,
+        vega=vega,
         below_200sma=below_200sma,
         additional_factors=additional
     )

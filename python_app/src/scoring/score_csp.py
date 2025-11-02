@@ -6,7 +6,11 @@ Python 3.12 compatible following CLAUDE.md standards.
 """
 
 from typing import Dict, Any, List
-from ..constants import CSP_SCORING_WEIGHTS
+from ..constants import (
+    CSP_SCORING_WEIGHTS,
+    THETA_OPTIMAL_RANGE, GAMMA_LOW_THRESHOLD, GAMMA_HIGH_THRESHOLD,
+    VEGA_HIGH_THRESHOLD, VEGA_LOW_THRESHOLD
+)
 from ..utils.math import zscore
 
 
@@ -40,19 +44,25 @@ def csp_score(
     roi_30d: float,
     margin_of_safety: float,
     trend_stability: float,
+    theta: float = 0.0,
+    gamma: float = 0.0,
+    vega: float = 0.0,
     additional_factors: Dict[str, Any] = None
 ) -> float:
     """
     Calculate comprehensive score for a cash-secured put pick.
 
     Formula:
-    Score = w1*IV_Rank + w2*ROI + w3*Margin + w4*Stability
+    Score = w1*IV_Rank + w2*ROI + w3*Margin + w4*Stability + w5*Theta + w6*Gamma + w7*Vega
 
     Args:
         iv_rank: IV Rank percentage (0-100)
         roi_30d: 30-day ROI as decimal (e.g., 0.012 for 1.2%)
         margin_of_safety: How far OTM as decimal (e.g., 0.08 for 8%)
         trend_stability: Trend consistency score (0 to 1)
+        theta: Theta (time decay per day, as absolute value)
+        gamma: Gamma (delta change per $1 stock move)
+        vega: Vega (price change per 1% IV change)
         additional_factors: Optional dict with extra scoring factors
 
     Returns:
@@ -74,8 +84,37 @@ def csp_score(
     # Trend Stability: already 0-1
     stability_component = trend_stability * weights['trend_stability']
 
+    # Theta: normalize assuming 0.03-0.25 range, optimal 0.05-0.15
+    theta_abs = abs(theta)
+    theta_optimal_min, theta_optimal_max = THETA_OPTIMAL_RANGE
+    if theta_optimal_min <= theta_abs <= theta_optimal_max:
+        theta_component = 1.0 * weights['theta']
+    elif theta_abs < theta_optimal_min:
+        theta_component = (theta_abs / theta_optimal_min) * weights['theta']
+    else:
+        theta_component = max(0.3, 1.0 - (theta_abs - theta_optimal_max) / 0.15) * weights['theta']
+
+    # Gamma: prefer low gamma (more stable), penalize high gamma
+    if gamma <= GAMMA_LOW_THRESHOLD:
+        gamma_component = 1.0 * weights['gamma']
+    elif gamma <= GAMMA_HIGH_THRESHOLD:
+        gamma_component = 0.7 * weights['gamma']
+    else:
+        gamma_component = 0.3 * weights['gamma']
+
+    # Vega: match to IV environment (same as CC logic)
+    if iv_rank > 70 and vega > VEGA_HIGH_THRESHOLD:
+        vega_component = 1.0 * weights['vega']  # High vega in high IV = excellent
+    elif iv_rank > 70 and vega > VEGA_LOW_THRESHOLD:
+        vega_component = 0.8 * weights['vega']
+    elif iv_rank < 30 and vega < VEGA_LOW_THRESHOLD:
+        vega_component = 0.9 * weights['vega']  # Low vega in low IV = good stability
+    else:
+        vega_component = 0.6 * weights['vega']  # Moderate match
+
     # Calculate base score
-    base_score = iv_component + roi_component + margin_component + stability_component
+    base_score = (iv_component + roi_component + margin_component + stability_component +
+                  theta_component + gamma_component + vega_component)
 
     # Apply adjustments
     final_score = base_score
@@ -126,6 +165,11 @@ def score_csp_pick(pick: Dict[str, Any]) -> float:
     margin_of_safety = pick.get('margin_of_safety', 0.07)
     trend_stability = pick.get('trend_stability', 0.5)
 
+    # Extract Greeks
+    theta = pick.get('theta', 0.0)
+    gamma = pick.get('gamma', 0.0)
+    vega = pick.get('vega', 0.0)
+
     # Check if near support
     strike = pick.get('strike', 0)
     support_level = pick.get('support_level', 0)
@@ -151,6 +195,9 @@ def score_csp_pick(pick: Dict[str, Any]) -> float:
         roi_30d=roi_30d,
         margin_of_safety=margin_of_safety,
         trend_stability=trend_stability,
+        theta=theta,
+        gamma=gamma,
+        vega=vega,
         additional_factors=additional
     )
 

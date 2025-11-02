@@ -48,6 +48,59 @@ class RealOptionsFetcher:
 
         return None
 
+    def get_historical_prices(self, symbol: str, days: int = 250) -> Optional[Dict]:
+        """
+        Get historical OHLC price data for a symbol.
+        Uses /v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from}/{to} endpoint.
+
+        Args:
+            symbol: Stock symbol
+            days: Number of calendar days to fetch (default 250 to ensure 200+ trading days)
+
+        Returns:
+            Dict with lists of close, high, low prices (most recent last), or None if error
+        """
+        # Calculate date range
+        to_date = date.today() - timedelta(days=1)  # Yesterday
+        from_date = to_date - timedelta(days=days)
+
+        url = f"{self.base_url}/v2/aggs/ticker/{symbol}/range/1/day/{from_date.isoformat()}/{to_date.isoformat()}"
+        params = {"apiKey": self.api_key, "adjusted": "true", "sort": "asc", "limit": 5000}
+
+        try:
+            response = self.session.get(url, params=params)
+            logger.info(f"Historical prices API call for {symbol}: {response.status_code}")
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'OK' and data.get('results'):
+                    results = data['results']
+
+                    # Extract OHLC arrays
+                    closes = [bar['c'] for bar in results]
+                    highs = [bar['h'] for bar in results]
+                    lows = [bar['l'] for bar in results]
+                    volumes = [bar['v'] for bar in results]
+
+                    logger.info(f"{symbol} historical data: {len(closes)} bars fetched")
+
+                    return {
+                        'symbol': symbol,
+                        'prices': closes,  # Close prices
+                        'highs': highs,
+                        'lows': lows,
+                        'volumes': volumes,
+                        'bars': len(closes)
+                    }
+                else:
+                    logger.warning(f"No historical data found for {symbol}")
+            else:
+                logger.error(f"Historical prices error for {symbol}: {response.text}")
+        except Exception as e:
+            logger.error(f"Error fetching historical prices for {symbol}: {e}")
+
+        return None
+
     def list_options_contracts(self, symbol: str, contract_type: str = "call",
                               expiry_gte: str = None, expiry_lte: str = None,
                               strike_gte: float = None, strike_lte: float = None) -> List[Dict]:
@@ -270,6 +323,8 @@ class RealOptionsFetcher:
                 if snapshot and 'greeks' in snapshot:
                     candidate['delta'] = snapshot['greeks'].get('delta')
                     candidate['theta'] = snapshot['greeks'].get('theta')
+                    candidate['gamma'] = snapshot['greeks'].get('gamma')
+                    candidate['vega'] = snapshot['greeks'].get('vega')
                     candidate['iv'] = snapshot.get('implied_volatility')
 
                 candidates.append(candidate)
@@ -355,6 +410,8 @@ class RealOptionsFetcher:
                 if snapshot and 'greeks' in snapshot:
                     candidate['delta'] = snapshot['greeks'].get('delta')
                     candidate['theta'] = snapshot['greeks'].get('theta')
+                    candidate['gamma'] = snapshot['greeks'].get('gamma')
+                    candidate['vega'] = snapshot['greeks'].get('vega')
                     candidate['iv'] = snapshot.get('implied_volatility')
 
                 candidates.append(candidate)
