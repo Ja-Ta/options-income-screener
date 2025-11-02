@@ -91,6 +91,7 @@ See **[Management Scripts](MANAGEMENT_SCRIPTS.md)** for detailed operational gui
 - **[Development Guide](CLAUDE.md)**: Coding standards and workflows
 - **[MVP Roadmap](MVP_ROADMAP.md)**: Implementation checklist
 - **[Project Status](PROJECT_STATUS.md)**: Current system status and metrics
+- **[Next Priorities](NEXT_PRIORITIES.md)**: Suggested development focus areas
 
 **Operational Guides**
 - **[Management Scripts](MANAGEMENT_SCRIPTS.md)**: Server management and operations

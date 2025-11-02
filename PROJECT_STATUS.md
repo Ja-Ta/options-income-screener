@@ -1,6 +1,7 @@
 # Options Income Screener - Project Status
-**Date:** November 2, 2025 (Evening Session)
+**Date:** November 2, 2025
 **Status:** PRODUCTION READY & OPTIMIZED ✅
+**Version:** 2.2 (Telegram Alert Enhancements Complete)
 
 ## 🚀 System Overview
 
@@ -13,7 +14,47 @@ The Options Income Screener is now fully optimized and production-ready. The sys
 
 ---
 
-## 🎉 Today's Session Accomplishments (Nov 2, Evening)
+## 🎉 Recent Session Accomplishments (Nov 2, 2025)
+
+### Version 2.2 - Telegram Alert Enhancements (Latest)
+1. **✅ Fixed AI Rationales Not Appearing in Alerts**
+   - Identified data flow bug in `daily_job.py` line 606
+   - Modified to pass picks with database IDs to `send_alerts()`
+   - AI rationales now display correctly in all Telegram messages
+
+2. **✅ Fixed Message Truncation Issues**
+   - Split combined alert into 4 separate messages
+   - Header, CC picks, CSP picks, and footer sent independently
+   - Each message stays under Telegram's 4096 character limit
+   - Full AI rationales now visible (600-1100 characters each)
+
+3. **✅ Fixed IV Rank Display Bug**
+   - Corrected formatting from `:.1%` to `:.1f%`
+   - IV Rank now shows 100.0% instead of 10000%
+   - Applied to both CC and CSP message formatting
+
+4. **✅ Added Expiry Dates to Alerts**
+   - All picks now display format: `@ $135.00 (Exp: 2025-12-12)`
+   - Improves clarity for users evaluating opportunities
+
+5. **✅ Added Legal Disclaimer**
+   - Footer message includes: "⚠️ For educational purposes only. Not financial advice."
+   - Protects against misinterpretation of recommendations
+
+6. **✅ Increased Claude API Token Limit**
+   - Increased from 350 to 500 tokens in `claude_service.py`
+   - Prevents mid-sentence truncation of rationales
+   - All rationales now complete and coherent
+
+**Testing Results:**
+- 19 symbols screened successfully
+- 74 picks generated (38 CC + 36 CSP)
+- 5 AI rationales created (top picks)
+- 4 Telegram messages sent successfully
+- All messages under 4096 character limit
+- Zero errors
+
+### Version 2.1 - API Migration & Optimization (Earlier)
 
 ### API Migration & Optimization
 1. **✅ Migrated all endpoints from api.polygon.io → api.massive.com**
@@ -269,18 +310,24 @@ See **[MANAGEMENT_SCRIPTS.md](MANAGEMENT_SCRIPTS.md)** for complete operational 
 
 ## 📈 Success Metrics - All Complete! ✅
 
-- ✅ Real options data fetching
+- ✅ Real options data fetching (Massive.com API)
 - ✅ Greeks and IV from market
 - ✅ Database persistence (unified architecture)
-- ✅ Web dashboard display
-- ✅ Telegram alerts with AI insights
-- ✅ Scoring algorithm
-- ✅ AI rationales (100% quality, no issues)
-- ✅ Automated scheduling (cron configured)
-- ✅ Full symbol coverage (13 symbols)
+- ✅ Web dashboard display (http://157.245.214.224:3000)
+- ✅ Telegram alerts with AI insights (v2.2 enhancements)
+- ✅ Scoring algorithm (Greek-enhanced + trend analysis)
+- ✅ AI rationales (100% quality, complete, no truncation)
+- ✅ Automated scheduling (cron at 10 AM ET weekdays)
+- ✅ Full symbol coverage (19 symbols)
 - ✅ Management scripts for operations
 - ✅ Comprehensive documentation
 
 ---
 
-**Bottom Line:** The system is fully production-ready with AI-powered insights! All critical quality issues resolved, database unified, automated scheduling active, and comprehensive operational documentation in place. System is running reliably with 100% AI rationale success rate.
+## 📋 Next Session Priorities
+
+The system is production-ready. See **[NEXT_PRIORITIES.md](NEXT_PRIORITIES.md)** for suggested development focus areas.
+
+---
+
+**Bottom Line:** The system is fully production-ready with AI-powered insights! Version 2.2 resolved all Telegram alert issues, enabling complete AI rationales to display correctly. All 19 symbols screening successfully with 100% success rate. Ready for automated daily operation.
