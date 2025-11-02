@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from ..data.real_options_fetcher import RealOptionsFetcher
 from ..services.telegram_service import TelegramService
 from ..services.claude_service import ClaudeService
+from ..services.monitoring_service import MonitoringService
 
 
 # Configure logging
@@ -71,10 +72,14 @@ class ProductionPipeline:
         self.fetcher = RealOptionsFetcher(api_key)
         self.telegram = TelegramService()
         self.claude = ClaudeService()
+        self.monitoring = MonitoringService()
 
         # Database paths
         self.python_db_path = "python_app/data/screener.db"
         self.node_db_path = "data/screener.db"
+
+        # Run tracking
+        self.run_id = None
 
         # Statistics
         self.stats = {
@@ -475,10 +480,14 @@ class ProductionPipeline:
         """
         start_time = time.time()
 
+        # Record pipeline start in monitoring
+        self.run_id = self.monitoring.record_pipeline_start()
+
         logger.info("="*60)
         logger.info("PRODUCTION OPTIONS SCREENING PIPELINE")
         logger.info("="*60)
         logger.info(f"Date: {date.today()}")
+        logger.info(f"Run ID: {self.run_id}")
         logger.info(f"Screening {len(self.symbols)} symbols")
         logger.info("-"*60)
 
@@ -563,8 +572,30 @@ class ProductionPipeline:
         logger.info("PIPELINE COMPLETE")
         logger.info("="*60)
 
+        # Determine pipeline status
+        pipeline_success = self.stats['symbols_failed'] < self.stats['symbols_attempted']
+        if pipeline_success and self.stats['symbols_succeeded'] > 0:
+            status = 'success'
+        elif self.stats['symbols_succeeded'] > 0:
+            status = 'partial'
+        else:
+            status = 'failed'
+
+        # Record pipeline completion in monitoring
+        error_message = None
+        if self.stats['errors']:
+            error_message = f"{len(self.stats['errors'])} errors occurred"
+
+        self.monitoring.record_pipeline_completion(
+            run_id=self.run_id,
+            status=status,
+            stats=self.stats,
+            error_message=error_message
+        )
+
         return {
-            'success': self.stats['symbols_failed'] < self.stats['symbols_attempted'],
+            'success': pipeline_success,
+            'run_id': self.run_id,
             'stats': self.stats,
             'cc_picks': cc_picks,
             'csp_picks': csp_picks

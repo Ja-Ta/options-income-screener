@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import picksRoutes from './routes/picks.js';
 import statsRoutes from './routes/stats.js';
 import symbolsRoutes from './routes/symbols.js';
+import monitoringRoutes from './routes/monitoring.js';
 import db from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -52,6 +53,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/picks', picksRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/symbols', symbolsRoutes);
+app.use('/api/monitoring', monitoringRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
