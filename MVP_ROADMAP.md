@@ -13,7 +13,7 @@
 - [x] IV metrics calculations
 - [x] Test scripts
 
-## ✅ Completed MVP Features (Phase 1B - Nov 2, 2024)
+## ✅ Completed MVP Features (Phase 1B - Nov 2, 2025)
 - [x] **Real Polygon Options API Integration**
   - [x] Options contracts listing (/v3/reference/options/contracts)
   - [x] Options quotes fetching (/v3/quotes/{ticker})

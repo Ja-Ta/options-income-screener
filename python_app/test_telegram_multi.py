@@ -101,7 +101,7 @@ Other configured chats should NOT receive this."""
         'strategy': 'CC',
         'spot_price': 100.00,
         'strike': 105.00,
-        'expiry': '2024-12-20',
+        'expiry': '2025-12-20',
         'premium': 2.50,
         'roi_30d': 0.025,
         'iv_rank': 65.0,
