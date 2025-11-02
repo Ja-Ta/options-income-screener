@@ -433,8 +433,27 @@ def main():
     # Initialize screener
     screener = RealPolygonScreener(api_key)
 
-    # Test symbols (start with a few to avoid rate limits)
-    symbols = ['SPY', 'AAPL', 'MSFT']  # Start small
+    # Production symbols - high liquidity options-friendly stocks
+    symbols = [
+        # Major ETFs
+        'SPY',   # S&P 500
+        'QQQ',   # Nasdaq 100
+        'IWM',   # Russell 2000
+        'DIA',   # Dow Jones
+
+        # Mega-cap Tech
+        'AAPL',  # Apple
+        'MSFT',  # Microsoft
+        'GOOGL', # Google
+        'AMZN',  # Amazon
+        'META',  # Meta
+        'NVDA',  # Nvidia
+
+        # Other High-Volume
+        'TSLA',  # Tesla
+        'AMD',   # AMD
+        'JPM',   # JP Morgan
+    ]
 
     # Run screening
     results = screener.run_screening(symbols)

@@ -66,7 +66,7 @@ The Options Income Screener is now fully functional with AI-powered insights. Th
 
 ## 📊 Last Run Statistics
 - **Date:** November 2, 2025
-- **Symbols Screened:** 3 (SPY, AAPL, MSFT)
+- **Symbols Screened:** 13 (SPY, QQQ, IWM, DIA, AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA, AMD, JPM)
 - **Picks Generated:** 12 (6 CC, 6 CSP)
 - **AI Rationales Generated:** 4 out of 5 (1 temporary API error)
 - **Top Pick:** MSFT CSP $500 (Score: 0.593)
@@ -76,12 +76,7 @@ The Options Income Screener is now fully functional with AI-powered insights. Th
 ## 🔧 Open Items / Next Steps
 
 ### High Priority
-1. **Expand Symbol Universe**
-   - Current: 3 symbols
-   - Target: 10-50 symbols
-   - Consider: SPY, QQQ, AAPL, MSFT, GOOGL, AMZN, TSLA, META, NVDA, AMD
-
-2. **Production Pipeline Integration**
+1. **Production Pipeline Integration**
    - Update `daily_job.py` to use `real_polygon_screening.py`
    - Add proper error handling and retries
 
