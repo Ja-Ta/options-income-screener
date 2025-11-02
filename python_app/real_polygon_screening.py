@@ -138,14 +138,15 @@ class RealPolygonScreener:
         }
 
     def save_picks_to_db(self, all_picks: List[Dict]):
-        """Save picks to database."""
+        """Save picks to database and return picks with IDs."""
         conn = sqlite3.connect("python_app/data/screener.db")
         cursor = conn.cursor()
 
         today = date.today()
         inserted = 0
+        picks_with_ids = []
 
-        # Clear today's picks
+        # Clear today's picks and rationales
         cursor.execute("DELETE FROM picks WHERE date = ?", (today.isoformat(),))
 
         for pick in all_picks:
@@ -168,6 +169,13 @@ class RealPolygonScreener:
                     iv_rank, pick['score'],
                     pick['trend'], pick['earnings_days']
                 ))
+
+                # Get the ID of the inserted pick
+                pick_id = cursor.lastrowid
+                pick_copy = pick.copy()
+                pick_copy['id'] = pick_id
+                pick_copy['spot_price'] = pick['stock_price']  # Claude expects spot_price
+                picks_with_ids.append(pick_copy)
                 inserted += 1
             except Exception as e:
                 logger.error(f"Error inserting pick: {e}")
@@ -208,12 +216,92 @@ class RealPolygonScreener:
             logger.error(f"Error syncing to Node database: {e}")
 
         conn.close()
-        return inserted
+        return inserted, picks_with_ids
+
+    def generate_and_save_rationales(self, picks: List[Dict]):
+        """Generate Claude AI rationales for top picks and save to database."""
+        if not picks:
+            return
+
+        # Take top 5 picks for rationale generation to manage API costs
+        top_picks = sorted(picks, key=lambda x: x.get('score', 0), reverse=True)[:5]
+
+        logger.info(f"\n🤖 Generating AI rationales for top {len(top_picks)} picks...")
+
+        # Add required fields for Claude service
+        for pick in top_picks:
+            # Add IV rank if not present
+            if 'iv_rank' not in pick:
+                # Using IV as proxy for IV rank (convert to percentage)
+                pick['iv_rank'] = min(pick.get('iv', 0.5) * 100, 100) if pick.get('iv') else 50
+
+            # Add trend_strength based on trend
+            if pick.get('trend') == 'uptrend':
+                pick['trend_strength'] = 0.6
+            elif pick.get('trend') == 'neutral':
+                pick['trend_strength'] = 0
+            else:
+                pick['trend_strength'] = -0.4
+
+            # Add other fields Claude expects
+            pick['below_200sma'] = False  # Simplified
+            pick['margin_of_safety'] = abs(pick['stock_price'] - pick['strike']) / pick['stock_price']
+
+        # Generate rationales
+        rationales = self.claude.generate_batch_rationales(top_picks)
+
+        if rationales:
+            logger.info(f"  ✅ Generated {len(rationales)} rationales")
+
+            # Save rationales to database
+            conn = sqlite3.connect("python_app/data/screener.db")
+            cursor = conn.cursor()
+
+            for pick_id, rationale_text in rationales.items():
+                try:
+                    # Update pick with rationale
+                    cursor.execute('''
+                        UPDATE picks
+                        SET rationale = ?
+                        WHERE id = ?
+                    ''', (rationale_text, pick_id))
+
+                    # Also save to rationales table if it exists
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO rationales (pick_id, summary, created_at)
+                        VALUES (?, ?, datetime('now'))
+                    ''', (pick_id, rationale_text))
+                except Exception as e:
+                    logger.error(f"Error saving rationale for pick {pick_id}: {e}")
+
+            conn.commit()
+            conn.close()
+            logger.info(f"  ✅ Saved rationales to database")
+        else:
+            logger.info(f"  ⚠️ No rationales generated")
 
     def send_alerts(self, cc_picks: List[Dict], csp_picks: List[Dict]):
-        """Send alerts via Telegram."""
+        """Send alerts via Telegram with AI rationales."""
         if not cc_picks and not csp_picks:
             return False
+
+        # Get rationales from database if available
+        conn = sqlite3.connect("python_app/data/screener.db")
+        cursor = conn.cursor()
+        rationales_map = {}
+
+        try:
+            cursor.execute('''
+                SELECT id, rationale FROM picks
+                WHERE date = ? AND rationale IS NOT NULL
+            ''', (date.today().isoformat(),))
+
+            for row in cursor.fetchall():
+                rationales_map[row[0]] = row[1]
+        except Exception as e:
+            logger.error(f"Error fetching rationales: {e}")
+        finally:
+            conn.close()
 
         # Format message
         message = f"🎯 **Daily Options Screening Results**\n"
@@ -223,23 +311,38 @@ class RealPolygonScreener:
         if cc_picks:
             message += f"📈 **Top Covered Calls ({len(cc_picks)})**\n"
             for pick in cc_picks[:3]:
-                message += f"• {pick['symbol']}: ${pick['strike']:.2f} "
-                message += f"(Premium: ${pick.get('premium', 0):.2f}, "
-                message += f"ROI: {pick.get('roi_30d', 0):.1%})\n"
+                message += f"\n• **{pick['symbol']}** @ ${pick['strike']:.2f}\n"
+                message += f"  Premium: ${pick.get('premium', 0):.2f} | ROI: {pick.get('roi_30d', 0):.1%}\n"
                 if pick.get('iv'):
-                    message += f"  IV: {pick['iv']:.1%}, Delta: {pick.get('delta', 'N/A')}\n"
+                    message += f"  IV: {pick['iv']:.1%} | Score: {pick.get('score', 0):.2f}\n"
+
+                # Add rationale if available
+                if pick.get('id') and pick['id'] in rationales_map:
+                    rationale = rationales_map[pick['id']]
+                    # Truncate rationale to first 150 chars for Telegram
+                    if len(rationale) > 150:
+                        rationale = rationale[:147] + "..."
+                    message += f"  💡 {rationale}\n"
             message += "\n"
 
         if csp_picks:
             message += f"💰 **Top Cash-Secured Puts ({len(csp_picks)})**\n"
             for pick in csp_picks[:3]:
-                message += f"• {pick['symbol']}: ${pick['strike']:.2f} "
-                message += f"(Premium: ${pick.get('premium', 0):.2f}, "
-                message += f"ROI: {pick.get('roi_30d', 0):.1%})\n"
+                message += f"\n• **{pick['symbol']}** @ ${pick['strike']:.2f}\n"
+                message += f"  Premium: ${pick.get('premium', 0):.2f} | ROI: {pick.get('roi_30d', 0):.1%}\n"
                 if pick.get('iv'):
-                    message += f"  IV: {pick['iv']:.1%}, Delta: {pick.get('delta', 'N/A')}\n"
+                    message += f"  IV: {pick['iv']:.1%} | Score: {pick.get('score', 0):.2f}\n"
 
-        message += f"\n📊 View dashboard: http://157.245.214.224:3000"
+                # Add rationale if available
+                if pick.get('id') and pick['id'] in rationales_map:
+                    rationale = rationales_map[pick['id']]
+                    # Truncate rationale to first 150 chars for Telegram
+                    if len(rationale) > 150:
+                        rationale = rationale[:147] + "..."
+                    message += f"  💡 {rationale}\n"
+
+        message += f"\n📊 Dashboard: http://157.245.214.224:3000"
+        message += f"\n🤖 AI rationales powered by Claude"
 
         # Send message
         return self.telegram.send_message(message)
@@ -280,10 +383,14 @@ class RealPolygonScreener:
         print(f"\n✅ Found {len(cc_picks)} CC and {len(csp_picks)} CSP picks")
 
         # Save to database
+        picks_with_ids = []
         if all_picks:
             print("\n💾 Saving to database...")
-            saved = self.save_picks_to_db(all_picks)
+            saved, picks_with_ids = self.save_picks_to_db(all_picks)
             print(f"  ✅ Saved {saved} picks")
+
+            # Generate AI rationales for top picks
+            self.generate_and_save_rationales(picks_with_ids)
 
             # Send alerts
             print("\n📱 Sending alerts...")
