@@ -1,7 +1,7 @@
 # Options Income Screener - Project Status
 **Date:** November 8, 2025
 **Status:** PRODUCTION READY & OPTIMIZED ✅
-**Version:** 2.3 (Earnings Calendar Integration Complete)
+**Version:** 2.4 (UI Enhancement - Stock Price Column Added)
 
 ## 🚀 System Overview
 
@@ -16,7 +16,33 @@ The Options Income Screener is now fully optimized and production-ready. The sys
 
 ## 🎉 Recent Session Accomplishments (Nov 8, 2025)
 
-### Version 2.3 - Earnings Calendar Integration (Latest)
+### Version 2.4 - UI Enhancement: Stock Price Column (Latest)
+1. **✅ Added Stock Price Column to Dashboard**
+   - New column displays current stock price for each pick
+   - Positioned immediately after Symbol column for better context
+   - Format: $XXX.XX with proper decimal formatting
+   - Fallback: Shows 'N/A' if price data missing
+
+2. **✅ Updated Table Layout**
+   - Modified `index.html` table structure
+   - New column order: Symbol → Stock Price → Strategy → Strike → Expiry → Premium → ROI → IV Rank → Score
+   - Maintains existing styling and responsive design
+   - No breaking changes to existing functionality
+
+3. **✅ Production Testing**
+   - API server restarted successfully
+   - Database connection verified
+   - Stock price data confirmed in API responses
+   - Sample verification: HOOD @ $130.36, Strike $135.00
+   - All picks display correctly with stock prices
+
+**Impact:**
+- Improves user experience with immediate price context
+- Helps evaluate option moneyness at a glance
+- Uses existing database field (no schema changes)
+- Zero performance impact
+
+### Version 2.3 - Earnings Calendar Integration (Prior)
 1. **✅ Integrated Massive.com Benzinga Earnings API**
    - Implemented `get_earnings_date()` method in `RealOptionsFetcher`
    - Fetches next earnings date for each symbol (90-day lookahead)
