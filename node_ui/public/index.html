@@ -239,6 +239,7 @@
           <thead>
             <tr>
               <th>Symbol</th>
+              <th>Stock Price</th>
               <th>Strategy</th>
               <th>Strike</th>
               <th>Expiry</th>
@@ -257,6 +258,7 @@
         html += `
           <tr>
             <td><strong>${p.symbol}</strong></td>
+            <td>$${p.stock_price ? p.stock_price.toFixed(2) : 'N/A'}</td>
             <td><span class="strategy-${p.strategy}">${p.strategy}</span></td>
             <td>$${p.strike}</td>
             <td>${p.expiry}</td>
