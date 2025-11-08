@@ -240,6 +240,7 @@
             <tr>
               <th>Symbol</th>
               <th>Stock Price</th>
+              <th>Div Yield</th>
               <th>Strategy</th>
               <th>Strike</th>
               <th>Expiry</th>
@@ -255,10 +256,19 @@
       picks.forEach(p => {
         const scoreClass = p.score >= 0.7 ? 'score-high' :
                           p.score >= 0.5 ? 'score-med' : 'score-low';
+
+        // Format dividend yield - show for CC picks, gray out for CSP
+        let divYieldDisplay = '-';
+        if (p.dividend_yield > 0) {
+          divYieldDisplay = `${(p.dividend_yield * 100).toFixed(2)}%`;
+        }
+        const divYieldStyle = p.strategy === 'CSP' ? 'color: #ccc;' : '';
+
         html += `
           <tr>
             <td><strong>${p.symbol}</strong></td>
             <td>$${p.stock_price ? p.stock_price.toFixed(2) : 'N/A'}</td>
+            <td style="${divYieldStyle}">${divYieldDisplay}</td>
             <td><span class="strategy-${p.strategy}">${p.strategy}</span></td>
             <td>$${p.strike}</td>
             <td>${p.expiry}</td>

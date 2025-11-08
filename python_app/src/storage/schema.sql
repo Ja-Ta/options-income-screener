@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS picks (
   roi_30d REAL,
   iv_rank REAL,
   score REAL,
+  dividend_yield REAL DEFAULT 0,
   notes TEXT
 );
 

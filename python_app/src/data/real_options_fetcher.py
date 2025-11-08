@@ -402,6 +402,75 @@ class RealOptionsFetcher:
 
         return None
 
+    def get_dividend_yield(self, symbol: str, stock_price: float) -> Optional[Dict]:
+        """
+        Get dividend yield for a symbol using Massive.com Dividends API.
+
+        Args:
+            symbol: Stock symbol
+            stock_price: Current stock price (for yield calculation)
+
+        Returns:
+            Dict with dividend info: {
+                'symbol': str,
+                'annual_dividend': float,
+                'dividend_yield': float (as decimal, e.g., 0.0447 for 4.47%),
+                'cash_amount': float,
+                'frequency': int (4=quarterly, 12=monthly, etc.),
+                'ex_dividend_date': str (YYYY-MM-DD),
+                'pay_date': str (YYYY-MM-DD),
+                'dividend_type': str
+            }
+            Returns None if no dividend data or API error
+        """
+        url = f"{self.base_url}/v3/reference/dividends"
+        params = {
+            "ticker": symbol,
+            "limit": 1,
+            "apiKey": self.api_key
+        }
+
+        try:
+            response = self.session.get(url, params=params)
+            logger.info(f"Dividend API call for {symbol}: {response.status_code}")
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'OK' and data.get('results'):
+                    dividend = data['results'][0]
+
+                    cash_amount = dividend.get('cash_amount', 0)
+                    frequency = dividend.get('frequency', 0)
+
+                    # Calculate annual dividend
+                    annual_dividend = cash_amount * frequency
+
+                    # Calculate yield
+                    dividend_yield = (annual_dividend / stock_price) if stock_price > 0 else 0
+
+                    result = {
+                        'symbol': symbol,
+                        'annual_dividend': annual_dividend,
+                        'dividend_yield': dividend_yield,
+                        'cash_amount': cash_amount,
+                        'frequency': frequency,
+                        'ex_dividend_date': dividend.get('ex_dividend_date'),
+                        'pay_date': dividend.get('pay_date'),
+                        'dividend_type': dividend.get('dividend_type')
+                    }
+
+                    logger.info(f"{symbol} dividend: ${annual_dividend:.2f}/yr ({dividend_yield*100:.2f}% yield, {frequency}x/yr)")
+                    return result
+                else:
+                    logger.info(f"No dividend data found for {symbol}")
+            else:
+                logger.warning(f"Dividend API error for {symbol}: {response.status_code} - {response.text}")
+
+        except Exception as e:
+            logger.error(f"Error fetching dividend for {symbol}: {e}")
+
+        return None
+
     def find_cash_secured_put_candidates(self, symbol: str, stock_price: float,
                                         days_to_expiry_min: int = 30,
                                         days_to_expiry_max: int = 45) -> List[Dict]:
@@ -527,6 +596,50 @@ def test_earnings():
     logger.info(f"{'='*60}\n")
 
 
+def test_dividends():
+    """Test dividend data fetching."""
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    api_key = os.getenv('POLYGON_API_KEY')
+    if not api_key:
+        logger.error("No POLYGON_API_KEY found (Massive.com API key)")
+        return
+
+    fetcher = RealOptionsFetcher(api_key)
+
+    # Test with multiple symbols including high-dividend stocks
+    test_symbols = ['AAPL', 'T', 'KO', 'PFE', 'INTC', 'SPY']
+
+    logger.info(f"\n{'='*60}")
+    logger.info("Testing Dividend Data Fetching")
+    logger.info(f"{'='*60}\n")
+
+    for symbol in test_symbols:
+        # Get stock price first
+        stock_price = fetcher.get_stock_price(symbol)
+        if not stock_price:
+            logger.warning(f"❌ {symbol}: Could not get stock price")
+            continue
+
+        # Get dividend data
+        dividend = fetcher.get_dividend_yield(symbol, stock_price)
+        if dividend:
+            logger.info(f"✅ {symbol}:")
+            logger.info(f"   Stock Price: ${stock_price:.2f}")
+            logger.info(f"   Dividend: ${dividend['cash_amount']:.3f} x {dividend['frequency']}/yr = ${dividend['annual_dividend']:.2f}/yr")
+            logger.info(f"   Yield: {dividend['dividend_yield']*100:.2f}%")
+            logger.info(f"   Ex-Date: {dividend['ex_dividend_date']}")
+            logger.info(f"   Type: {dividend['dividend_type']}")
+        else:
+            logger.info(f"ℹ️  {symbol}: No dividend (likely non-dividend paying stock)")
+        logger.info("")
+
+    logger.info(f"{'='*60}")
+    logger.info("✅ Dividend test complete!")
+    logger.info(f"{'='*60}\n")
+
+
 def test_real_options():
     """Test real options fetching."""
     from dotenv import load_dotenv
@@ -590,5 +703,7 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == '--test-earnings':
         test_earnings()
+    elif len(sys.argv) > 1 and sys.argv[1] == '--test-dividends':
+        test_dividends()
     else:
         test_real_options()

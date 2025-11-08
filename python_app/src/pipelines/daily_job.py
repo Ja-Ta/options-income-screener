@@ -190,6 +190,17 @@ class ProductionPipeline:
                 else:
                     logger.info(f"  {symbol} has no upcoming earnings in next 90 days")
 
+                # Fetch dividend data
+                dividend_info = self.fetcher.get_dividend_yield(symbol, stock_price)
+                dividend_yield = 0
+
+                if dividend_info:
+                    dividend_yield = dividend_info['dividend_yield']
+                    logger.info(f"  {symbol} dividend: ${dividend_info['annual_dividend']:.2f}/yr ({dividend_yield*100:.2f}% yield)")
+                    self.stats['api_calls'] += 1
+                else:
+                    logger.info(f"  {symbol} has no dividend data")
+
                 # Fetch historical price data for trend analysis
                 historical_data = self.fetcher.get_historical_prices(symbol, days=HISTORICAL_DAYS_TO_FETCH)
                 technical_features = {}
@@ -231,7 +242,7 @@ class ProductionPipeline:
                         # Add fields required by scoring function
                         candidate['iv_rank'] = candidate.get('iv', 0) * 100  # Convert IV to rank (0-100)
                         candidate['trend_strength'] = technical_features.get('trend_strength', 0)
-                        candidate['dividend_yield'] = 0  # Placeholder (can be added later via API)
+                        candidate['dividend_yield'] = dividend_yield  # Real dividend data from API
                         candidate['below_200sma'] = technical_features.get('below_200sma', False)
 
                         # Determine trend classification
@@ -364,8 +375,8 @@ class ProductionPipeline:
                         INSERT INTO picks (
                             date, asof, symbol, strategy, strike, expiry,
                             premium, stock_price, roi_30d, annualized_return,
-                            iv_rank, score, trend, earnings_days
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            iv_rank, score, trend, earnings_days, dividend_yield
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         today.isoformat(), today.isoformat(),
                         pick['symbol'], pick['strategy'],
@@ -373,7 +384,8 @@ class ProductionPipeline:
                         pick['premium'], pick['stock_price'],
                         pick['roi_30d'], pick['annualized_return'],
                         iv_rank, pick['score'],
-                        pick['trend'], pick['earnings_days']
+                        pick['trend'], pick['earnings_days'],
+                        pick.get('dividend_yield', 0)
                     ))
 
                     pick_id = cursor.lastrowid
@@ -406,8 +418,8 @@ class ProductionPipeline:
                             INSERT INTO picks (
                                 date, asof, symbol, strategy, strike, expiry,
                                 premium, stock_price, roi_30d, annualized_return,
-                                iv_rank, score, trend, earnings_days
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                iv_rank, score, trend, earnings_days, dividend_yield
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ''', (
                             today.isoformat(), today.isoformat(),
                             pick['symbol'], pick['strategy'],
@@ -415,7 +427,8 @@ class ProductionPipeline:
                             pick['premium'], pick['stock_price'],
                             pick['roi_30d'], pick['annualized_return'],
                             iv_rank, pick['score'],
-                            pick['trend'], pick['earnings_days']
+                            pick['trend'], pick['earnings_days'],
+                            pick.get('dividend_yield', 0)
                         ))
                     except Exception as e:
                         logger.error(f"Error syncing pick to Node DB: {e}")
