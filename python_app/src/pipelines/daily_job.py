@@ -155,6 +155,41 @@ class ProductionPipeline:
 
                 self.stats['api_calls'] += 1
 
+                # Fetch earnings data
+                earnings_info = self.fetcher.get_earnings_date(symbol)
+                earnings_days_until = None
+                earnings_date = None
+
+                if earnings_info:
+                    earnings_days_until = earnings_info['days_until']
+                    earnings_date = earnings_info['date']
+                    logger.info(f"  {symbol} earnings: {earnings_date} ({earnings_days_until} days, {earnings_info['date_status']})")
+
+                    # Cache earnings data in database
+                    try:
+                        conn = sqlite3.connect(self.python_db_path)
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            INSERT OR REPLACE INTO earnings (
+                                symbol, earnings_date, date_status, fiscal_period, fiscal_year, estimated_eps, updated_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+                        ''', (
+                            symbol,
+                            earnings_info['date'],
+                            earnings_info['date_status'],
+                            earnings_info['fiscal_period'],
+                            earnings_info['fiscal_year'],
+                            earnings_info.get('estimated_eps')
+                        ))
+                        conn.commit()
+                        conn.close()
+                    except Exception as e:
+                        logger.warning(f"  Could not cache earnings for {symbol}: {e}")
+
+                    self.stats['api_calls'] += 1
+                else:
+                    logger.info(f"  {symbol} has no upcoming earnings in next 90 days")
+
                 # Fetch historical price data for trend analysis
                 historical_data = self.fetcher.get_historical_prices(symbol, days=HISTORICAL_DAYS_TO_FETCH)
                 technical_features = {}
@@ -208,8 +243,21 @@ class ProductionPipeline:
                         else:
                             candidate['trend'] = 'neutral'
 
+                        # Calculate days from option expiry to earnings
+                        if earnings_date and candidate.get('expiry'):
+                            try:
+                                expiry_dt = datetime.strptime(candidate['expiry'], '%Y-%m-%d').date()
+                                earnings_dt = datetime.strptime(earnings_date, '%Y-%m-%d').date()
+                                candidate['earnings_days'] = (earnings_dt - expiry_dt).days
+                            except:
+                                candidate['earnings_days'] = 999  # Fallback if date parsing fails
+                        else:
+                            candidate['earnings_days'] = 999  # No earnings data = safe
+
+                        # Add earnings_days_until for scoring
+                        candidate['earnings_days_until'] = earnings_days_until if earnings_days_until else 999
+
                         candidate['score'] = self.calculate_score(candidate, 'CC')
-                        candidate['earnings_days'] = 45  # Placeholder (can be added later via earnings API)
                         cc_picks.append(candidate)
 
                 self.stats['api_calls'] += len(cc_candidates)
@@ -238,8 +286,21 @@ class ProductionPipeline:
                         else:
                             candidate['trend'] = 'neutral'
 
+                        # Calculate days from option expiry to earnings
+                        if earnings_date and candidate.get('expiry'):
+                            try:
+                                expiry_dt = datetime.strptime(candidate['expiry'], '%Y-%m-%d').date()
+                                earnings_dt = datetime.strptime(earnings_date, '%Y-%m-%d').date()
+                                candidate['earnings_days'] = (earnings_dt - expiry_dt).days
+                            except:
+                                candidate['earnings_days'] = 999  # Fallback if date parsing fails
+                        else:
+                            candidate['earnings_days'] = 999  # No earnings data = safe
+
+                        # Add earnings_days_until for scoring
+                        candidate['earnings_days_until'] = earnings_days_until if earnings_days_until else 999
+
                         candidate['score'] = self.calculate_score(candidate, 'CSP')
-                        candidate['earnings_days'] = 45  # Placeholder (can be added later via earnings API)
                         csp_picks.append(candidate)
 
                 self.stats['api_calls'] += len(csp_candidates)

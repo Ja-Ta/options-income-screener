@@ -22,7 +22,8 @@ This screener helps identify high-quality options trading opportunities for inco
 - Daily screening of defined stock universe
 - IV Rank and IV Percentile calculations
 - Technical trend analysis (SMA, momentum, volatility)
-- Risk-adjusted scoring algorithms
+- **Earnings calendar integration** with risk-based penalties
+- Risk-adjusted scoring algorithms with Greek analysis
 - Automated alerts with AI-generated explanations
 - Web dashboard with filtering and historical data
 

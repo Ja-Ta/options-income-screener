@@ -139,9 +139,20 @@ def cc_score(
         if additional_factors.get('trend_consistency', 0) > 0.7:
             final_score *= 1.03
 
-        # Penalty for earnings proximity
-        if additional_factors.get('near_earnings', False):
-            final_score *= 0.97
+        # Earnings proximity penalty (stronger than before)
+        earnings_days_until = additional_factors.get('earnings_days_until', 999)
+        if earnings_days_until < 7:
+            # Severe penalty for earnings within 7 days (high risk)
+            final_score *= 0.50
+        elif earnings_days_until < 14:
+            # Strong penalty for earnings 7-14 days out
+            final_score *= 0.70
+        elif earnings_days_until < 21:
+            # Moderate penalty for earnings 14-21 days out
+            final_score *= 0.85
+        elif earnings_days_until < 30:
+            # Light penalty for earnings 21-30 days out
+            final_score *= 0.93
 
     # Ensure score stays in bounds
     return max(0.0, min(1.0, final_score))
@@ -175,6 +186,7 @@ def score_cc_pick(pick: Dict[str, Any]) -> float:
         'spread_pct': pick.get('spread_pct', 0),
         'trend_consistency': pick.get('trend_consistency', 0.5),
         'near_earnings': pick.get('near_earnings', False),
+        'earnings_days_until': pick.get('earnings_days_until', 999),
         'hv_60': pick.get('hv_60', 0),
         'volume': pick.get('volume', 0)
     }
@@ -264,8 +276,18 @@ def explain_cc_score(pick: Dict[str, Any]) -> str:
     # Add penalties/bonuses
     if pick.get('below_200sma'):
         explanation += "  • Penalty: Below 200 SMA\n"
-    if pick.get('near_earnings'):
-        explanation += "  • Warning: Earnings approaching\n"
+
+    # Earnings warnings
+    earnings_days = pick.get('earnings_days_until', 999)
+    if earnings_days < 7:
+        explanation += "  • ⚠️ SEVERE: Earnings in <7 days (-50%)\n"
+    elif earnings_days < 14:
+        explanation += "  • ⚠️ WARNING: Earnings in 7-14 days (-30%)\n"
+    elif earnings_days < 21:
+        explanation += "  • ⚠️ Caution: Earnings in 14-21 days (-15%)\n"
+    elif earnings_days < 30:
+        explanation += "  • ⚠️ Note: Earnings in 21-30 days (-7%)\n"
+
     if pick.get('oi', 0) > 2000:
         explanation += "  • Bonus: Excellent liquidity\n"
 

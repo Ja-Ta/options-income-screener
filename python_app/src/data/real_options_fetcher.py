@@ -331,6 +331,77 @@ class RealOptionsFetcher:
 
         return candidates
 
+    def get_earnings_date(self, symbol: str) -> Optional[Dict]:
+        """
+        Get next earnings date for a symbol using Massive.com Benzinga Earnings API.
+
+        Args:
+            symbol: Stock symbol
+
+        Returns:
+            Dict with earnings info: {
+                'symbol': str,
+                'date': str (YYYY-MM-DD),
+                'date_status': str ('confirmed' or 'projected'),
+                'fiscal_period': str (e.g., 'Q1', 'Q2'),
+                'fiscal_year': int,
+                'estimated_eps': float (optional),
+                'days_until': int (days from today)
+            }
+            Returns None if no earnings found or API error
+        """
+        today = date.today()
+        # Look ahead 90 days for next earnings
+        to_date = today + timedelta(days=90)
+
+        url = f"{self.base_url}/benzinga/v1/earnings"
+        params = {
+            "ticker": symbol,
+            "date.gte": today.isoformat(),
+            "date.lte": to_date.isoformat(),
+            "limit": 1,
+            "order": "asc",
+            "sort": "date",
+            "apiKey": self.api_key
+        }
+
+        try:
+            response = self.session.get(url, params=params)
+            logger.info(f"Earnings API call for {symbol}: {response.status_code}")
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'OK' and data.get('results'):
+                    earnings = data['results'][0]
+                    earnings_date = earnings.get('date')
+
+                    if earnings_date:
+                        # Parse earnings date
+                        earnings_dt = datetime.strptime(earnings_date, '%Y-%m-%d').date()
+                        days_until = (earnings_dt - today).days
+
+                        result = {
+                            'symbol': symbol,
+                            'date': earnings_date,
+                            'date_status': earnings.get('date_status', 'unknown'),
+                            'fiscal_period': earnings.get('fiscal_period', 'N/A'),
+                            'fiscal_year': earnings.get('fiscal_year'),
+                            'estimated_eps': earnings.get('estimated_eps'),
+                            'days_until': days_until
+                        }
+
+                        logger.info(f"{symbol} next earnings: {earnings_date} ({days_until} days, {result['date_status']})")
+                        return result
+                else:
+                    logger.info(f"No upcoming earnings found for {symbol} in next 90 days")
+            else:
+                logger.warning(f"Earnings API error for {symbol}: {response.status_code} - {response.text}")
+
+        except Exception as e:
+            logger.error(f"Error fetching earnings for {symbol}: {e}")
+
+        return None
+
     def find_cash_secured_put_candidates(self, symbol: str, stock_price: float,
                                         days_to_expiry_min: int = 30,
                                         days_to_expiry_max: int = 45) -> List[Dict]:
@@ -419,6 +490,43 @@ class RealOptionsFetcher:
         return candidates
 
 
+def test_earnings():
+    """Test earnings data fetching."""
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    api_key = os.getenv('POLYGON_API_KEY')
+    if not api_key:
+        logger.error("No POLYGON_API_KEY found (Massive.com API key)")
+        return
+
+    fetcher = RealOptionsFetcher(api_key)
+
+    # Test with multiple symbols
+    test_symbols = ['AAPL', 'MSFT', 'GOOGL', 'SPY', 'NVDA']
+
+    logger.info(f"\n{'='*60}")
+    logger.info("Testing Earnings Data Fetching")
+    logger.info(f"{'='*60}\n")
+
+    for symbol in test_symbols:
+        earnings = fetcher.get_earnings_date(symbol)
+        if earnings:
+            logger.info(f"✅ {symbol}:")
+            logger.info(f"   Date: {earnings['date']} ({earnings['days_until']} days)")
+            logger.info(f"   Status: {earnings['date_status']}")
+            logger.info(f"   Period: {earnings['fiscal_period']} {earnings['fiscal_year']}")
+            if earnings.get('estimated_eps'):
+                logger.info(f"   Est. EPS: ${earnings['estimated_eps']:.2f}")
+        else:
+            logger.warning(f"❌ {symbol}: No earnings data found")
+        logger.info("")
+
+    logger.info(f"{'='*60}")
+    logger.info("✅ Earnings test complete!")
+    logger.info(f"{'='*60}\n")
+
+
 def test_real_options():
     """Test real options fetching."""
     from dotenv import load_dotenv
@@ -479,4 +587,8 @@ def test_real_options():
 
 
 if __name__ == "__main__":
-    test_real_options()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == '--test-earnings':
+        test_earnings()
+    else:
+        test_real_options()

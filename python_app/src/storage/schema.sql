@@ -46,9 +46,14 @@ CREATE TABLE IF NOT EXISTS iv_metrics (
 );
 
 CREATE TABLE IF NOT EXISTS earnings (
-  symbol TEXT,
-  earnings_date DATE,
-  confirmed INTEGER
+  symbol TEXT NOT NULL,
+  earnings_date DATE NOT NULL,
+  date_status TEXT,
+  fiscal_period TEXT,
+  fiscal_year INTEGER,
+  estimated_eps REAL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (symbol, earnings_date)
 );
 
 CREATE TABLE IF NOT EXISTS picks (
@@ -84,3 +89,5 @@ CREATE TABLE IF NOT EXISTS alerts (
 CREATE INDEX IF NOT EXISTS idx_prices_asof ON prices(asof);
 CREATE INDEX IF NOT EXISTS idx_options_symbol_asof ON options(symbol, asof);
 CREATE INDEX IF NOT EXISTS idx_picks_asof ON picks(asof);
+CREATE INDEX IF NOT EXISTS idx_earnings_symbol ON earnings(symbol);
+CREATE INDEX IF NOT EXISTS idx_earnings_date ON earnings(earnings_date);
