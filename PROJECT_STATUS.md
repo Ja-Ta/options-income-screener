@@ -348,45 +348,68 @@ The Options Income Screener is now fully optimized and production-ready. The sys
 
 ## 🔧 Open Items / Next Steps
 
-### ✅ Completed
-1. **Production Pipeline Integration** - DONE
-   - Updated `daily_job.py` with `ProductionPipeline` class
-   - Integrated real Polygon API data via `RealOptionsFetcher`
-   - Implemented retry logic (3 retries, 5s delay)
-   - Added comprehensive error handling and logging
-   - Wrapper script updated to use new pipeline
-   - Tested successfully
+### ✅ Recently Completed (v2.3 - v2.6)
+1. **Earnings Calendar Integration (v2.3)** - DONE
+   - Integrated Massive.com Benzinga Earnings API
+   - Added earnings proximity penalties to scoring
+   - Cached earnings data in database
 
-2. **Database Unification** - DONE
-   - Fixed database path conflicts
-   - Unified to data/screener.db
-   - Updated all scripts and services
-   - Verified end-to-end functionality
+2. **Stock Price UI Enhancement (v2.4)** - DONE
+   - Added stock price column to dashboard
+   - Improved pick evaluation context
 
-3. **AI Rationale Quality** - DONE
-   - Fixed all 4 critical issues
-   - Increased token limits
-   - Improved data validation
-   - Added deduplication logic
+3. **Dividend Data Integration (v2.5)** - DONE
+   - Integrated Massive.com Dividends API
+   - Activated 5% CC scoring weight
+   - Added dividend yield column to dashboard
 
-### Medium Priority
-3. **Error Handling & Monitoring**
-   - Add comprehensive try/catch blocks
-   - Send Telegram alerts on failures
-   - Log errors to file
+4. **Enhanced Earnings Display (v2.6)** - DONE
+   - Added color-coded earnings column to dashboard
+   - Enhanced Telegram alerts with earnings warnings
+   - Implemented 5-level risk color system
 
-### Low Priority
-4. **Data Management**
-   - Implement cleanup for old data
-   - Add archival process
+### 🎯 High Priority - Next Development Session
+1. **Historical Performance Tracking**
+   - Track actual pick outcomes (assignments, expirations, profits)
+   - Calculate win rate and average returns by strategy
+   - Add performance metrics to dashboard
+   - Compare predicted vs actual ROI
 
-5. **Performance**
-   - Optimize rate limiting
-   - Add caching layer
+2. **Dashboard Visualizations**
+   - Add charts for score distribution
+   - Historical performance graphs
+   - Strategy comparison visualizations
+   - Earnings calendar view
 
-6. **Testing**
-   - Add unit tests for scoring
-   - Integration tests for pipeline
+3. **Advanced Filtering (Optional)**
+   - Add earnings filter to dashboard (exclude picks with near-term earnings)
+   - Filter by multiple criteria simultaneously
+   - Save filter presets for quick access
+
+### 🔧 Medium Priority
+4. **System Improvements**
+   - Add comprehensive error alerting via Telegram
+   - Implement data cleanup/archival for old picks
+   - Add monitoring dashboard for system health
+   - Enhanced logging and diagnostics
+
+5. **Portfolio Management Features**
+   - Track positions opened from picks
+   - Calculate portfolio-level metrics
+   - Risk management and position sizing
+   - P&L tracking integration
+
+### 💡 Future Enhancements
+6. **Backtesting Framework**
+   - Historical simulation of pick performance
+   - Strategy optimization
+   - Parameter tuning based on historical data
+
+7. **Advanced Analytics**
+   - Sentiment analysis integration
+   - Sector rotation signals
+   - Volatility regime detection
+   - Machine learning score refinements
 
 ## 💻 How to Run
 

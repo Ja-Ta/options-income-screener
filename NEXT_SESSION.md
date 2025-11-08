@@ -1,40 +1,41 @@
 # Next Development Session Guide
-**Date:** November 2, 2025 (Evening Session Complete)
-**Last Session:** API Migration & Performance Optimization
+**Date:** November 8, 2025 (Session Complete)
+**Current Version:** v2.6 (Enhanced Earnings Display)
+**System Status:** ✅ Production Ready & Fully Operational
 
 ---
 
-## 🎉 What Was Accomplished Today (Evening Session)
+## 🎉 What Was Accomplished Today
 
-### Major Achievements
-1. **API Migration Complete** ✅
-   - Migrated all endpoints from api.polygon.io to api.massive.com
-   - Verified all 4 endpoints working (stock prices, contracts, quotes, snapshots)
-   - Updated all code and documentation references
+### Major Achievements (v2.3 - v2.6)
 
-2. **Performance Optimization** ✅
-   - Removed artificial rate limits (5→20 contracts per strategy)
-   - Eliminated sleep delays (0.5s per contract → 0s)
-   - Reduced inter-symbol delay (2s → 0.1s)
-   - **83% performance improvement** (31.7s for 19 symbols)
+**v2.3 - Earnings Calendar Integration** ✅
+- Integrated Massive.com Benzinga Earnings API
+- Added earnings proximity penalties to scoring (10% weight)
+- Cached earnings data in database for performance
+- Tested successfully with production data
 
-3. **Symbol Universe Expansion** ✅
-   - Migrated from hardcoded list to CSV file
-   - Expanded from 13 to 19 symbols
-   - Added: PLTR, COIN, NBIS, SOFI, HOOD, GME
-   - CSV-based management (no code changes needed)
+**v2.4 - Stock Price UI Enhancement** ✅
+- Added stock price column to dashboard
+- Improved pick evaluation context for users
+- Better decision-making information
 
-4. **Full System Validation** ✅
-   - Tested all 19 symbols successfully
-   - 74 picks generated (38 CC + 36 CSP)
-   - 100% success rate after API account adjustment
-   - Top pick: NBIS CSP (0.928 score, 8.6% ROI)
+**v2.5 - Dividend Data Integration** ✅
+- Integrated Massive.com Dividends API
+- Activated 5% CC scoring weight (previously unused)
+- Added dividend yield column to dashboard
+- High-yield stocks (>5%) now receive full 5% score boost
 
-5. **Documentation & Tooling** ✅
-   - Created `MASSIVE_API_ENDPOINTS.csv` (sortable reference)
-   - Created `API_USAGE_SUMMARY.md` (detailed analysis)
-   - Updated README, PROJECT_STATUS, CLAUDE.md
-   - Committed all changes to GitHub
+**v2.6 - Enhanced Earnings Display** ✅
+- Added color-coded earnings column to dashboard with 5-level risk system:
+  - 🔴 Red (<7 days) - Severe risk
+  - 🟠 Orange (7-14 days) - Strong risk
+  - 🟡 Yellow (14-21 days) - Moderate risk
+  - 🟢 Green (21-30 days) - Light risk
+  - ✅ Safe (>30 days) - Low risk
+- Enhanced Telegram alerts with earnings proximity warnings
+- Updated database queries to dynamically calculate earnings_days_until
+- Production tested with real data (GME: 30 days until earnings)
 
 ---
 
@@ -46,260 +47,339 @@
 - ✅ Daily automated screening (cron: 10 AM ET, weekdays)
 - ✅ 19-symbol universe (SPY, QQQ, IWM, DIA, AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA, AMD, JPM, PLTR, COIN, NBIS, SOFI, HOOD, GME)
 - ✅ Massive.com API (Options Advanced, unlimited tier)
-- ✅ Optimized screening (31.7 seconds for 19 symbols)
-- ✅ Claude AI rationales (100% quality, 5/screening)
+- ✅ Optimized screening (~32 seconds for 19 symbols)
+- ✅ Earnings calendar integration with proximity penalties
+- ✅ Dividend data integration with CC scoring boost
+- ✅ Claude AI rationales (100% quality)
 - ✅ Unified database (data/screener.db, WAL mode)
 - ✅ REST API (15+ endpoints)
-- ✅ Web dashboard (http://157.245.214.224:3000)
-- ✅ Telegram alerts with AI insights
+- ✅ Web dashboard with earnings & dividend display (http://157.245.214.224:3000)
+- ✅ Telegram alerts with earnings warnings
 - ✅ Management scripts for operations
 
 ### Key Metrics
-- **Last Run:** November 2, 2025 (14:09 UTC)
-- **Picks Generated:** 74 total (38 CC + 36 CSP)
-- **Symbols Succeeded:** 19/19 (100%)
-- **Duration:** 31.7 seconds
-- **API Calls:** ~1,577 per screening run
-- **Top Performers:** NBIS (0.928), HOOD (0.844), PLTR (0.830)
+- **Last Update:** November 8, 2025
+- **Version:** 2.6
+- **Screening Duration:** ~32 seconds
+- **API Calls:** ~1,615 per run (quotes, options, Greeks, earnings, dividends)
+- **Pick Quality:** Top picks avoid near-term earnings + favor dividend-payers
+- **Dashboard Features:** Stock price, dividend yield, earnings proximity
 
 ---
 
-## 🎯 Suggested Next Priorities
+## 🎯 Recommended Next Priorities
 
-### **Priority 1: Monitoring & Observability** (HIGH)
-**Rationale:** System is fully automated - need visibility into reliability and quality
+### **Priority 1: Historical Performance Tracking** (HIGH PRIORITY)
+**Rationale:** Most valuable feature for validating screener effectiveness
 
-**Tasks:**
-1. **Rationale Quality Monitoring**
-   - Add automated checks for rationale completeness
-   - Monitor length (min 500 chars), symbol accuracy
-   - Track success/failure rates
-   - Alert if quality degrades
+**What to Build:**
+1. **Position Tracking System**
+   - New database table: `positions` (pick_id, opened_date, status, closed_date, profit_loss)
+   - Manual or automated position entry
+   - Track assignments, expirations, buybacks
 
-2. **Database Health Monitoring**
-   - Daily health checks (table counts, integrity)
-   - Monitor database size growth
-   - Check for orphaned data
-   - Verify WAL checkpoint status
+2. **Performance Metrics**
+   - Win rate by strategy (CC vs CSP)
+   - Average actual ROI vs predicted ROI
+   - Assignment rate analysis
+   - Earnings proximity impact analysis
 
-3. **Pipeline Monitoring**
-   - Track daily run success/failure
-   - Monitor API call counts and response times
-   - Log screening duration and performance
-   - Alert on failures via Telegram
+3. **Dashboard Integration**
+   - New "Performance" tab showing historical results
+   - Charts: Win rate trends, ROI distribution, strategy comparison
+   - Filter by date range, strategy, symbol
 
-4. **Create Monitoring Dashboard**
-   - Simple metrics page showing:
-     - Last run status & timestamp
-     - Success rates (symbols, picks, rationales)
-     - Error counts and types
-     - Database statistics
-     - Performance trends
+4. **Validation & Learning**
+   - Compare predicted earnings_days penalties with actual outcomes
+   - Validate dividend boost correlation with profitability
+   - Identify which score components predict success
 
 **Estimated Time:** 3-4 hours
 **Files to Create/Modify:**
-- `python_app/src/services/monitoring_service.py` - Enhanced monitoring
-- `python_app/src/pipelines/daily_job.py` - Add monitoring hooks
-- `node_ui/src/routes/monitoring.js` - New metrics endpoint
-- `node_ui/public/monitoring.html` - Monitoring dashboard
+- `python_app/src/storage/schema.sql` - Add positions table
+- `python_app/src/storage/performance_dao.py` - Data access
+- `node_ui/src/routes/performance.js` - API endpoints
+- `node_ui/public/performance.html` - Performance dashboard
+- `python_app/src/analysis/backtest.py` - Historical analysis
+
+**Impact:** HIGH - Proves system value, enables continuous improvement
 
 ---
 
-### **Priority 2: Production Hardening** (MEDIUM)
-**Rationale:** Prepare for long-term automated operation
+### **Priority 2: Dashboard Visualizations** (MEDIUM PRIORITY)
+**Rationale:** Improve user experience and data interpretation
 
-**Tasks:**
-1. **API Server Persistence**
-   - Create systemd service for Node.js API
-   - Auto-restart on failure
-   - Boot-time startup
-   - Logging and monitoring integration
+**What to Build:**
+1. **Charts & Graphs**
+   - Score distribution histogram (see quality of picks)
+   - ROI distribution by strategy
+   - Earnings calendar timeline view
+   - IV Rank trends over time
 
-2. **Security Hardening**
-   - Configure UFW firewall rules
-   - Set up Nginx reverse proxy with SSL
-   - Implement API rate limiting
-   - Add request logging
+2. **Library Integration**
+   - Add Chart.js or similar lightweight library
+   - Server-side data aggregation for charts
+   - Interactive tooltips and filtering
 
-3. **Backup Automation**
-   - Daily database backups
-   - Backup rotation (keep last 30 days)
-   - Offsite backup storage
-   - Restore testing
-
-**Estimated Time:** 4-5 hours
-**Files to Create:**
-- `/etc/systemd/system/options-screener-api.service`
-- `scripts/backup_database.sh`
-- `/etc/nginx/sites-available/options-screener`
-
----
-
-### **Priority 3: Increase Rationale Coverage** (MEDIUM)
-**Rationale:** Currently only top 5 picks get AI rationales
-
-**Options:**
-1. **Increase Batch Size**
-   - Current: Top 5 picks
-   - Proposed: Top 10 or all picks with score > 0.7
-   - Cost: ~$0.01 per rationale × 5 more = ~$0.05/day
-
-2. **Implement Batching**
-   - Send multiple picks to Claude in one API call
-   - Reduce API overhead
-   - Parse responses for multiple rationales
-
-3. **Add Retry Logic**
-   - Retry failed rationale generations
-   - Exponential backoff
-   - Track retry success rates
+3. **Enhanced UI**
+   - Tabs for different views (Picks, Stats, Performance, Charts)
+   - Responsive design improvements
+   - Export functionality (CSV, PDF)
 
 **Estimated Time:** 2-3 hours
 **Files to Modify:**
-- `python_app/src/services/claude_service.py` - Batching logic
-- `python_app/src/pipelines/daily_job.py` - Increase count or threshold
+- `node_ui/public/index.html` - Add Chart.js, create chart containers
+- `node_ui/src/routes/stats.js` - Add chart data endpoints
+- Add new CSS for improved layout
+
+**Impact:** MEDIUM - Better user experience, easier pattern recognition
 
 ---
 
-### **Priority 4: Symbol Universe Management** (LOW)
-**Tasks:**
-- Add sector/industry metadata to universe.csv
-- Create universe management tool
-- Add symbol validation (check if options-eligible)
-- Historical performance tracking per symbol
+### **Priority 3: Advanced Filtering** (QUICK WIN)
+**Rationale:** Low effort, immediate usability improvement
+
+**What to Build:**
+1. **Filter Presets**
+   - "Conservative": No earnings <30 days, score >0.7, dividend >2%
+   - "Aggressive": Score >0.6, IV rank >60%
+   - "Dividend Focus": Dividend >3%, CC only
+   - "Safe Earnings": Earnings >45 days or no upcoming earnings
+
+2. **Multi-Criteria Filtering**
+   - Combine date, strategy, score, IVR, ROI, earnings, dividend
+   - URL parameter persistence (shareable links)
+   - Save user preferences in localStorage
+
+3. **UI Enhancements**
+   - Add filter panel with all criteria
+   - "Clear Filters" button
+   - Active filter badges
+
+**Estimated Time:** 1-2 hours
+**Files to Modify:**
+- `node_ui/public/index.html` - Add filter controls
+- `node_ui/src/routes/picks.js` - Enhance filtering logic
+
+**Impact:** MEDIUM - Quick win, better user control
+
+---
+
+### **Priority 4: System Monitoring & Observability** (MEDIUM PRIORITY)
+**What to Build:**
+- Monitoring dashboard showing last run status
+- Alert system for screening failures
+- Database health metrics
+- API response time tracking
 
 **Estimated Time:** 2-3 hours
 
 ---
 
-### **Priority 5: Feature Enhancements** (LOW)
-**Future Features:**
-- Historical performance tracking for picks
-- Backtest framework
-- Enhanced filtering in UI
-- Symbol watchlist functionality
-- Performance analytics dashboard
-- Email alerts in addition to Telegram
+### **Priority 5: Production Hardening** (LOW PRIORITY)
+**What to Build:**
+- Systemd service for API server
+- Nginx reverse proxy with SSL
+- Database backup automation
+- Log rotation
 
-**Estimated Time:** Variable (5-10 hours per feature)
+**Estimated Time:** 3-4 hours
+
+---
+
+## 📝 Session Startup Prompt
+
+**Copy and paste this to start your next session:**
+
+```
+I'm continuing development on the Options Income Screener project.
+
+CURRENT STATUS (v2.6):
+- System is production-ready and fully optimized
+- Daily automated screening via cron (10 AM ET weekdays)
+- 19-symbol universe screening in ~32 seconds
+- Dashboard at http://157.245.214.224:3000
+
+RECENT ACCOMPLISHMENTS (Nov 8, 2025):
+✅ v2.3 - Earnings calendar integration with proximity penalties
+✅ v2.4 - Stock price column added to dashboard
+✅ v2.5 - Dividend data integration (activated 5% CC scoring boost)
+✅ v2.6 - Enhanced earnings display with 5-level color-coded risk system
+
+NEW FEATURES WORKING:
+- Earnings column shows upcoming earnings with color-coded proximity warnings
+- Telegram alerts include earnings proximity (e.g., "⚠️ Earnings: 2025-12-09 (6d) 🔴")
+- Dividend yield displayed for CC picks
+- Database LEFT JOINs earnings table, calculates days_until dynamically
+
+RECOMMENDED NEXT STEPS:
+1. Historical Performance Tracking (HIGH - validates system effectiveness)
+2. Dashboard Visualizations (MEDIUM - better UX)
+3. Advanced Filtering (QUICK WIN - 1-2 hours)
+
+Please review NEXT_SESSION.md and PROJECT_STATUS.md for complete context, then recommend which feature to build next.
+```
 
 ---
 
 ## 🚀 Quick Commands Reference
 
 ```bash
+# Activate Python environment
+source python_app/venv/bin/activate
+
 # Daily screening (automated via cron)
 ./run_daily_screening.sh
 
 # API server management
-./start_api.sh      # Start server
-./stop_api.sh       # Stop server
-./restart_api.sh    # Restart server
+cd node_ui && node src/server.js  # Start manually
+# OR use background processes
+pgrep -f "node src/server.js"     # Check if running
+pkill -f "node src/server.js"     # Stop server
 
-# Check database
+# Database queries
 sqlite3 data/screener.db "SELECT COUNT(*) FROM picks WHERE date = date('now');"
-sqlite3 data/screener.db "SELECT symbol, strategy, score FROM picks ORDER BY created_at DESC LIMIT 10;"
+sqlite3 data/screener.db "SELECT symbol, strategy, score, earnings_date, earnings_days_until FROM picks WHERE date = '2025-11-08' ORDER BY score DESC LIMIT 10;"
+sqlite3 data/screener.db "SELECT symbol, dividend_yield FROM picks WHERE date = date('now') AND dividend_yield > 0 ORDER BY dividend_yield DESC;"
+
+# Test API endpoints
+curl -s http://localhost:3000/api/health | python3 -m json.tool
+curl -s http://localhost:3000/api/picks/latest | python3 -m json.tool | head -100
 
 # View logs
-tail -f logs/screening_$(date +%Y%m%d).log
+tail -f /tmp/screening.log
 tail -f /tmp/api_server.log
 
-# Check system status
-curl http://localhost:3000/api/health
-crontab -l
-
-# Add new symbol
-echo "NFLX,Netflix Inc.,Technology" >> python_app/src/data/universe.csv
+# Git status
+git log --oneline -5
+git status
 ```
 
 ---
 
 ## 📁 Key Files Reference
 
-**Recently Modified:**
-- `python_app/src/data/real_options_fetcher.py` - API migration, rate limit removal
-- `python_app/src/pipelines/daily_job.py` - CSV symbol loading, delay optimization
-- `python_app/src/data/universe.csv` - 19-symbol universe
-- `README.md`, `PROJECT_STATUS.md` - Documentation updates
-- `MASSIVE_API_ENDPOINTS.csv` - API reference
-- `API_USAGE_SUMMARY.md` - Usage analysis
+### Recently Modified (v2.6)
+- `node_ui/public/index.html` - Added earnings column with color-coding
+- `node_ui/src/db.js` - LEFT JOIN earnings table, calculate earnings_days_until
+- `python_app/src/pipelines/daily_job.py` - Added earnings_date to picks, Telegram warnings
+- `python_app/src/services/telegram_service.py` - Enhanced format_pick_message()
+- `PROJECT_STATUS.md` - Updated to v2.6, added next steps
 
-**Configuration:**
-- `.env` - POLYGON_API_KEY (works with Massive.com)
-- `python_app/src/data/universe.csv` - Symbol universe
+### Previously Modified (v2.3-v2.5)
+- `python_app/src/data/real_options_fetcher.py` - Added get_earnings_date(), get_dividend_yield()
+- `python_app/src/storage/schema.sql` - Added earnings table, dividend_yield column
+- `python_app/src/scoring/covered_call.py` - Activated dividend scoring component
+- `python_app/src/scoring/cash_secured_put.py` - Added earnings penalty
 
-**Documentation:**
+### Core Files (Stable)
+- `python_app/src/data/universe.csv` - 19 symbols
+- `.env` - API keys (MASSIVE_API_KEY, CLAUDE_API_KEY, TELEGRAM_BOT_TOKEN)
+- `data/screener.db` - SQLite database (WAL mode)
+
+### Documentation
 - `README.md` - Project overview
-- `PROJECT_STATUS.md` - Current status
+- `PROJECT_STATUS.md` - Current status and history
 - `CLAUDE.md` - Development guidelines
-- `MASSIVE_API_ENDPOINTS.csv` - API endpoint reference
-- `API_USAGE_SUMMARY.md` - API usage patterns
 - `NEXT_SESSION.md` - This file
 
 ---
 
-## 🔍 Known Issues / Tech Debt
+## 🔍 System Architecture
 
-**None currently!** All systems operational.
-
-**Minor Items:**
-- Rationale coverage only 6.8% (5 out of 74 picks)
-- No automated monitoring/alerting yet
-- API server requires manual startup
-- No SSL/HTTPS on API endpoint
-- No backup automation
-
----
-
-## 📝 Session Startup Prompt
-
-Use this prompt to start your next development session:
-
+### Data Flow
 ```
-I'm continuing development on the Options Income Screener project.
-
-CURRENT STATUS:
-- System is production-ready and fully optimized
-- Daily automated screening running via cron (10 AM ET weekdays)
-- 19-symbol universe screening in 31.7 seconds (83% faster)
-- All symbols screening successfully (100% success rate)
-- Massive.com API migration complete (unlimited tier)
-- 74 picks generated last run (38 CC + 36 CSP)
-- Top performers: NBIS (0.928), HOOD (0.844), PLTR (0.830)
-
-LAST SESSION ACCOMPLISHMENTS:
-- Migrated API endpoints from polygon.io to massive.com
-- Removed artificial rate limits (5→20 contracts, eliminated delays)
-- Expanded universe from 13 to 19 symbols (added PLTR, COIN, NBIS, SOFI, HOOD, GME)
-- Migrated symbol list to CSV (no code changes to add symbols)
-- Successfully tested all 19 symbols with zero errors
-- Created comprehensive API documentation
-
-RECOMMENDED NEXT PRIORITY:
-Implement monitoring & observability to track system reliability.
-
-Specifically:
-1. Add rationale quality monitoring (length, symbols, completeness)
-2. Create database health checks
-3. Track pipeline success/failure rates
-4. Build simple monitoring dashboard
-
-Please review NEXT_SESSION.md for complete context and help me start implementing [PRIORITY_NAME].
+Massive.com API
+  ↓ (RealOptionsFetcher)
+  - Stock quotes
+  - Options chains
+  - Greeks data
+  - Earnings calendar (Benzinga)
+  - Dividends data
+  ↓
+Python Screening Pipeline (daily_job.py)
+  - Fetch data for 19 symbols
+  - Screen for CC and CSP candidates
+  - Calculate 7-component scores
+  - Apply earnings penalties
+  - Apply dividend boosts
+  ↓
+SQLite Database (screener.db)
+  - Tables: picks, rationales, earnings
+  - WAL mode for concurrent access
+  ↓
+Node.js API (Express server)
+  - REST endpoints
+  - LEFT JOIN queries for earnings
+  - Dynamic calculations
+  ↓
+Dashboard UI + Telegram Alerts
+  - Color-coded risk displays
+  - Earnings proximity warnings
+  - Dividend yield information
 ```
 
+### Scoring Components
+
+**Covered Calls (7 components):**
+1. ROI Normalized (25%)
+2. IV Rank (20%)
+3. Trend Quality (15%)
+4. Strike Selection (15%)
+5. **Earnings Distance (10%)** ← Active penalty
+6. Premium Quality (10%)
+7. **Dividend Yield (5%)** ← Active boost
+
+**Cash-Secured Puts (6 components):**
+1. ROI Normalized (30%)
+2. IV Rank (25%)
+3. Margin of Safety (20%)
+4. Trend Quality (10%)
+5. **Earnings Distance (10%)** ← Active penalty
+6. Premium Quality (5%)
+
 ---
 
-## 💡 Tips for Next Session
+## 💡 Development Tips
 
-1. **Start with Monitoring** - System is automated, need visibility
-2. **Check Yesterday's Run** - Verify cron executed successfully tomorrow
-3. **Review Logs** - Check for any errors or anomalies
-4. **Database Health** - Quick check on picks and rationales
-5. **Consider Production Hardening** - systemd service, SSL, backups
+### Before Starting Next Session
+- [ ] Review PROJECT_STATUS.md for v2.6 changes
+- [ ] Check API server is running: `pgrep -f "node src/server.js"`
+- [ ] Verify database: `sqlite3 data/screener.db "SELECT COUNT(*) FROM picks;"`
+- [ ] Activate Python venv: `source python_app/venv/bin/activate`
+- [ ] Check latest picks have earnings data: Query earnings_date column
+
+### During Development
+- [ ] Follow CLAUDE.md standards (PEP 8, type hints, docstrings)
+- [ ] Use TodoWrite tool for multi-step tasks
+- [ ] Test incrementally (don't write everything at once)
+- [ ] Document as you code
+- [ ] Commit frequently with clear messages
+
+### Before Ending Session
+- [ ] Update PROJECT_STATUS.md with version bump
+- [ ] Update this file (NEXT_SESSION.md) with accomplishments
+- [ ] Commit all changes with descriptive message
+- [ ] Push to GitHub
+- [ ] Note any issues or tech debt
 
 ---
 
-**Last Updated:** November 2, 2025, 19:15 UTC
-**Commit:** [To be added after commit]
+## 🎯 Success Metrics
+
+The screener is working well when:
+- ✅ 100% symbol success rate (19/19 screening)
+- ✅ Earnings penalties reducing scores for risky picks
+- ✅ Dividend boosts elevating high-yield CC picks
+- ✅ Telegram alerts showing earnings warnings
+- ✅ Dashboard displaying all risk indicators
+- ✅ No API errors or database issues
+- ✅ ~32 second screening time maintained
+
+---
+
+**Last Updated:** November 8, 2025, Post-Session
+**Current Version:** v2.6 (Enhanced Earnings Display)
 **Branch:** main
-**Status:** All systems operational & optimized ✅
+**Status:** All systems operational ✅
+**Next Priority:** Historical Performance Tracking (recommended)
