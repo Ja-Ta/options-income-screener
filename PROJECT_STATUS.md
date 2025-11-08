@@ -1,7 +1,7 @@
 # Options Income Screener - Project Status
 **Date:** November 8, 2025
 **Status:** PRODUCTION READY & OPTIMIZED ✅
-**Version:** 2.5 (Dividend Data Integration Complete)
+**Version:** 2.6 (Enhanced Earnings Display Complete)
 
 ## 🚀 System Overview
 
@@ -16,7 +16,44 @@ The Options Income Screener is now fully optimized and production-ready. The sys
 
 ## 🎉 Recent Session Accomplishments (Nov 8, 2025)
 
-### Version 2.5 - Dividend Data Integration (Latest)
+### Version 2.6 - Enhanced Earnings Display (Latest)
+1. **✅ Added Earnings Date Column to Dashboard**
+   - New "Earnings" column displays upcoming earnings dates
+   - Color-coded by proximity for risk awareness:
+     - 🔴 Red (<7 days): Severe risk - immediate earnings event
+     - 🟠 Orange (7-14 days): Strong risk - earnings approaching
+     - 🟡 Yellow (14-21 days): Moderate risk - earnings within 3 weeks
+     - 🟢 Green (21-30 days): Light risk - earnings within month
+     - ✅ Safe (>30 days): Low risk - earnings far out
+   - Displays date and days until (e.g., "Dec 9 (30d) ✅")
+
+2. **✅ Enhanced Telegram Earnings Alerts**
+   - Added earnings proximity warnings to daily pick messages
+   - Warnings appear in CC and CSP pick summaries
+   - Same color-coded emoji system as dashboard
+   - Examples:
+     - `⚠️ Earnings: 2025-12-09 (6d) 🔴` (severe)
+     - `⚠️ Earnings: 2025-12-15 (12d) 🟠` (strong)
+     - `Earnings: 2025-12-20 (17d) 🟡` (moderate)
+
+3. **✅ Database Integration**
+   - Updated Node.js queries to LEFT JOIN earnings table
+   - Calculates `earnings_days_until` dynamically from current date
+   - Returns both earnings_date and days_until in API responses
+   - Handles missing earnings data gracefully (shows "-")
+
+4. **✅ Pipeline Integration**
+   - Added earnings_date field to pick dictionaries in `daily_job.py`
+   - Both CC and CSP picks include earnings information
+   - Data flows from Python pipeline → Database → Node API → UI/Telegram
+
+5. **✅ Production Testing**
+   - API successfully returns earnings data for all picks
+   - Example: GME shows earnings 30 days out (2025-12-09)
+   - Dashboard UI renders earnings column with proper formatting
+   - Color-coding system working across all proximity levels
+
+### Version 2.5 - Dividend Data Integration
 1. **✅ Integrated Massive.com Dividends API**
    - Implemented `get_dividend_yield()` method in `RealOptionsFetcher`
    - Fetches latest dividend data including amount, frequency, ex-date

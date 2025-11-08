@@ -267,6 +267,7 @@ class ProductionPipeline:
 
                         # Add earnings_days_until for scoring
                         candidate['earnings_days_until'] = earnings_days_until if earnings_days_until else 999
+                        candidate['earnings_date'] = earnings_date if earnings_date else None
 
                         candidate['score'] = self.calculate_score(candidate, 'CC')
                         cc_picks.append(candidate)
@@ -310,6 +311,7 @@ class ProductionPipeline:
 
                         # Add earnings_days_until for scoring
                         candidate['earnings_days_until'] = earnings_days_until if earnings_days_until else 999
+                        candidate['earnings_date'] = earnings_date if earnings_date else None
 
                         candidate['score'] = self.calculate_score(candidate, 'CSP')
                         csp_picks.append(candidate)
@@ -579,6 +581,20 @@ class ProductionPipeline:
                     if pick.get('iv_rank'):
                         cc_message += f"  IV Rank: {pick['iv_rank']:.1f}% | Score: {pick.get('score', 0):.2f}\n"
 
+                    # Add earnings proximity warning
+                    if pick.get('earnings_date') and pick.get('earnings_days_until') is not None:
+                        days_until = pick['earnings_days_until']
+                        if days_until < 999:
+                            earn_date = pick['earnings_date']
+                            if days_until < 7:
+                                cc_message += f"  ⚠️ Earnings: {earn_date} ({days_until}d) 🔴\n"
+                            elif days_until < 14:
+                                cc_message += f"  ⚠️ Earnings: {earn_date} ({days_until}d) 🟠\n"
+                            elif days_until < 21:
+                                cc_message += f"  Earnings: {earn_date} ({days_until}d) 🟡\n"
+                            elif days_until < 30:
+                                cc_message += f"  Earnings: {earn_date} ({days_until}d) 🟢\n"
+
                     # Add full rationale (no truncation needed with separate messages)
                     if pick.get('id') and pick['id'] in rationales_map:
                         rationale = rationales_map[pick['id']]
@@ -595,6 +611,20 @@ class ProductionPipeline:
                     csp_message += f"  Premium: ${pick.get('premium', 0):.2f} | ROI: {pick.get('roi_30d', 0):.1%}\n"
                     if pick.get('iv_rank'):
                         csp_message += f"  IV Rank: {pick['iv_rank']:.1f}% | Score: {pick.get('score', 0):.2f}\n"
+
+                    # Add earnings proximity warning
+                    if pick.get('earnings_date') and pick.get('earnings_days_until') is not None:
+                        days_until = pick['earnings_days_until']
+                        if days_until < 999:
+                            earn_date = pick['earnings_date']
+                            if days_until < 7:
+                                csp_message += f"  ⚠️ Earnings: {earn_date} ({days_until}d) 🔴\n"
+                            elif days_until < 14:
+                                csp_message += f"  ⚠️ Earnings: {earn_date} ({days_until}d) 🟠\n"
+                            elif days_until < 21:
+                                csp_message += f"  Earnings: {earn_date} ({days_until}d) 🟡\n"
+                            elif days_until < 30:
+                                csp_message += f"  Earnings: {earn_date} ({days_until}d) 🟢\n"
 
                     # Add full rationale (no truncation needed with separate messages)
                     if pick.get('id') and pick['id'] in rationales_map:

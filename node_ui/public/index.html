@@ -241,6 +241,7 @@
               <th>Symbol</th>
               <th>Stock Price</th>
               <th>Div Yield</th>
+              <th>Earnings</th>
               <th>Strategy</th>
               <th>Strike</th>
               <th>Expiry</th>
@@ -264,11 +265,40 @@
         }
         const divYieldStyle = p.strategy === 'CSP' ? 'color: #ccc;' : '';
 
+        // Format earnings with color-coding
+        let earningsDisplay = '-';
+        let earningsStyle = '';
+        let earningsClass = '';
+
+        if (p.earnings_date && p.earnings_days_until !== undefined && p.earnings_days_until < 999) {
+          const daysUntil = p.earnings_days_until;
+          const earnDate = new Date(p.earnings_date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+
+          // Color-code by proximity
+          if (daysUntil < 7) {
+            earningsStyle = 'color: #d32f2f; font-weight: 600;'; // Red - severe
+            earningsDisplay = `${earnDate} (${daysUntil}d) 🔴`;
+          } else if (daysUntil < 14) {
+            earningsStyle = 'color: #f57c00; font-weight: 600;'; // Orange - strong
+            earningsDisplay = `${earnDate} (${daysUntil}d) 🟠`;
+          } else if (daysUntil < 21) {
+            earningsStyle = 'color: #fbc02d; font-weight: 600;'; // Yellow - moderate
+            earningsDisplay = `${earnDate} (${daysUntil}d) 🟡`;
+          } else if (daysUntil < 30) {
+            earningsStyle = 'color: #7cb342;'; // Light green - light penalty
+            earningsDisplay = `${earnDate} (${daysUntil}d) 🟢`;
+          } else {
+            earningsStyle = 'color: #4caf50;'; // Green - safe
+            earningsDisplay = `${earnDate} (${daysUntil}d) ✅`;
+          }
+        }
+
         html += `
           <tr>
             <td><strong>${p.symbol}</strong></td>
             <td>$${p.stock_price ? p.stock_price.toFixed(2) : 'N/A'}</td>
             <td style="${divYieldStyle}">${divYieldDisplay}</td>
+            <td style="${earningsStyle}">${earningsDisplay}</td>
             <td><span class="strategy-${p.strategy}">${p.strategy}</span></td>
             <td>$${p.strike}</td>
             <td>${p.expiry}</td>

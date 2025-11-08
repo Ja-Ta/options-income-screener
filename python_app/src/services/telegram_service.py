@@ -82,6 +82,22 @@ class TelegramService:
         if pick['strategy'] == 'CSP' and 'margin_of_safety' in pick:
             message += f"• Safety: {pick['margin_of_safety']:.1%} OTM\n"
 
+        # Add earnings proximity warning with color-coded emojis
+        if pick.get('earnings_date') and pick.get('earnings_days_until') is not None:
+            days_until = pick['earnings_days_until']
+            if days_until < 999:  # Valid earnings date
+                earn_date = pick['earnings_date']
+                if days_until < 7:
+                    message += f"• ⚠️ Earnings: {earn_date} ({days_until}d) 🔴\n"
+                elif days_until < 14:
+                    message += f"• ⚠️ Earnings: {earn_date} ({days_until}d) 🟠\n"
+                elif days_until < 21:
+                    message += f"• Earnings: {earn_date} ({days_until}d) 🟡\n"
+                elif days_until < 30:
+                    message += f"• Earnings: {earn_date} ({days_until}d) 🟢\n"
+                else:
+                    message += f"• Earnings: {earn_date} ({days_until}d) ✅\n"
+
         # Notes section
         if pick.get('notes'):
             message += f"\n📝 **Notes:** {pick['notes']}\n"

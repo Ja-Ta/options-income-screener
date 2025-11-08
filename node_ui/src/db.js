@@ -58,13 +58,23 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not connected');
 
     return this.db.prepare(`
-      SELECT p.*, r.summary as rationale
+      SELECT p.*,
+             r.summary as rationale,
+             e.earnings_date,
+             CAST((julianday(e.earnings_date) - julianday('now')) AS INT) as earnings_days_until
       FROM picks p
       LEFT JOIN rationales r ON p.id = r.pick_id
         AND r.created_at = (
           SELECT MAX(created_at)
           FROM rationales
           WHERE pick_id = p.id
+        )
+      LEFT JOIN earnings e ON p.symbol = e.symbol
+        AND e.earnings_date >= date('now')
+        AND e.earnings_date = (
+          SELECT MIN(earnings_date)
+          FROM earnings
+          WHERE symbol = p.symbol AND earnings_date >= date('now')
         )
       WHERE p.date = ?
       ORDER BY p.score DESC
@@ -88,13 +98,23 @@ class DatabaseService {
     } = filters;
 
     let query = `
-      SELECT p.*, r.summary as rationale
+      SELECT p.*,
+             r.summary as rationale,
+             e.earnings_date,
+             CAST((julianday(e.earnings_date) - julianday('now')) AS INT) as earnings_days_until
       FROM picks p
       LEFT JOIN rationales r ON p.id = r.pick_id
         AND r.created_at = (
           SELECT MAX(created_at)
           FROM rationales
           WHERE pick_id = p.id
+        )
+      LEFT JOIN earnings e ON p.symbol = e.symbol
+        AND e.earnings_date >= date('now')
+        AND e.earnings_date = (
+          SELECT MIN(earnings_date)
+          FROM earnings
+          WHERE symbol = p.symbol AND earnings_date >= date('now')
         )
       WHERE 1=1
     `;
