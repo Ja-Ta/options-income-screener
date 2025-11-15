@@ -418,7 +418,7 @@ def send_alerts(cc_picks: List[Dict], csp_picks: List[Dict]) -> bool:
                     message += f"  💡 {first_sentence}\n"
                 message += "\n"
 
-        message += f"📊 Dashboard: http://157.245.214.224:3000"
+        message += f"📊 Dashboard: https://oiscreener.com"
 
         if telegram.send_message(message):
             logger.info("Telegram alert sent successfully")
@@ -533,7 +533,7 @@ def run_real_screening(symbols: List[str] = None):
     print("="*60)
     print("✅ SCREENING COMPLETE!")
     print("="*60)
-    print(f"\n📊 Dashboard: http://157.245.214.224:3000")
+    print(f"\n📊 Dashboard: https://oiscreener.com")
 
     return {
         'total_picks': len(all_picks),

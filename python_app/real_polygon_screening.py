@@ -341,7 +341,7 @@ class RealPolygonScreener:
                         rationale = rationale[:147] + "..."
                     message += f"  💡 {rationale}\n"
 
-        message += f"\n📊 Dashboard: http://157.245.214.224:3000"
+        message += f"\n📊 Dashboard: https://oiscreener.com"
         message += f"\n🤖 AI rationales powered by Claude"
 
         # Send message
@@ -413,7 +413,7 @@ class RealPolygonScreener:
         print("="*60)
         print("✅ REAL OPTIONS SCREENING COMPLETE!")
         print("="*60)
-        print(f"\n📊 Dashboard: http://157.245.214.224:3000")
+        print(f"\n📊 Dashboard: https://oiscreener.com")
 
         return {
             'total_picks': len(all_picks),

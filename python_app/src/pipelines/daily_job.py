@@ -767,7 +767,7 @@ class ProductionPipeline:
                     success = True
 
             # Send footer message
-            footer = f"\n📊 Dashboard: http://157.245.214.224:3000"
+            footer = f"\n📊 Dashboard: https://oiscreener.com"
             footer += f"\n🤖 AI rationales powered by Claude"
             footer += f"\n\n⚠️ For educational purposes only. Not financial advice."
             if self.telegram.send_message(footer):

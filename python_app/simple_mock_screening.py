@@ -219,7 +219,7 @@ def run_simple_screening():
     print("="*60)
     print("✅ SCREENING COMPLETE!")
     print("="*60)
-    print(f"\n📊 Dashboard: http://157.245.214.224:3000")
+    print(f"\n📊 Dashboard: https://oiscreener.com")
     print(f"📱 Check Telegram for alerts")
 
     return {

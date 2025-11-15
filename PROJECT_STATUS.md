@@ -7,7 +7,7 @@
 
 The Options Income Screener is now fully optimized and production-ready. The system uses Massive.com API (formerly Polygon.io) to fetch real-time options data, screens 19 symbols for covered calls and cash-secured puts, calculates scores based on Greeks and IV, generates AI rationales using Claude, and sends daily Telegram alerts. Recent optimizations reduced screening time by 83% (31.7 seconds for 19 symbols).
 
-**Live Dashboard:** http://157.245.214.224:3000
+**Live Dashboard:** https://oiscreener.com
 **Universe:** 19 symbols (CSV-managed)
 **Performance:** 31.7 seconds full screening
 **API:** Massive.com Options Advanced (unlimited)
@@ -435,7 +435,7 @@ The Options Income Screener is now fully optimized and production-ready. The sys
 ### View Dashboard
 ```bash
 # Dashboard accessible at:
-http://157.245.214.224:3000
+https://oiscreener.com
 ```
 
 ### Check Database
@@ -487,7 +487,7 @@ See **[MANAGEMENT_SCRIPTS.md](MANAGEMENT_SCRIPTS.md)** for complete operational 
 - ✅ Real options data fetching (Massive.com API)
 - ✅ Greeks and IV from market
 - ✅ Database persistence (unified architecture)
-- ✅ Web dashboard display (http://157.245.214.224:3000)
+- ✅ Web dashboard display (https://oiscreener.com)
 - ✅ Telegram alerts with AI insights (v2.2 enhancements)
 - ✅ Scoring algorithm (Greek-enhanced + trend analysis)
 - ✅ AI rationales (100% quality, complete, no truncation)

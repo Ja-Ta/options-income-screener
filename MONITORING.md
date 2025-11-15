@@ -47,7 +47,7 @@ Get current system health status with health score (0-100).
 
 **Example:**
 ```bash
-curl http://157.245.214.224:3000/api/monitoring/health
+curl https://oiscreener.com/api/monitoring/health
 ```
 
 **Response:**
@@ -79,7 +79,7 @@ Get recent pipeline execution history.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/monitoring/runs?limit=5"
+curl "https://oiscreener.com/api/monitoring/runs?limit=5"
 ```
 
 #### GET /api/monitoring/performance
@@ -90,7 +90,7 @@ Get performance metrics summary.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/monitoring/performance?days=7"
+curl "https://oiscreener.com/api/monitoring/performance?days=7"
 ```
 
 **Response:**
@@ -113,7 +113,7 @@ Get recent monitoring alerts.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/monitoring/alerts?severity=critical"
+curl "https://oiscreener.com/api/monitoring/alerts?severity=critical"
 ```
 
 #### POST /api/monitoring/alerts/:id/acknowledge
@@ -282,8 +282,8 @@ Consider adding:
 - **Custom dashboards** - Grafana or similar visualization
 
 Monitor these endpoints:
-- `http://157.245.214.224:3000/api/health` - Overall API health
-- `http://157.245.214.224:3000/api/monitoring/health` - Pipeline health
+- `https://oiscreener.com/api/health` - Overall API health
+- `https://oiscreener.com/api/monitoring/health` - Pipeline health
 
 ---
 

@@ -471,7 +471,7 @@ def run_hybrid_screening(symbols: List[str] = None):
                 message += f"  ROI: {pick['roi_30d']:.1%} | Score: {pick['score']:.2f}\n\n"
 
         message += f"⚠️ *Note: Option premiums are estimates*\n"
-        message += f"📊 Dashboard: http://157.245.214.224:3000"
+        message += f"📊 Dashboard: https://oiscreener.com"
 
         if telegram.send_message(message):
             print("  ✅ Telegram alert sent")
@@ -492,7 +492,7 @@ def run_hybrid_screening(symbols: List[str] = None):
     print("="*60)
     print("✅ HYBRID SCREENING COMPLETE!")
     print("="*60)
-    print(f"\n📊 Dashboard: http://157.245.214.224:3000")
+    print(f"\n📊 Dashboard: https://oiscreener.com")
 
     return {
         'total_picks': len(all_picks),

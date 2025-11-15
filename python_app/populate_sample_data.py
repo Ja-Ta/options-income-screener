@@ -104,7 +104,7 @@ def populate_sample_data():
     print("✅ SAMPLE DATA POPULATED!")
     print("="*60)
     print(f"\n🎉 Added {picks_added} sample picks to the database")
-    print("\n📊 Check your dashboard at: http://157.245.214.224:3000")
+    print("\n📊 Check your dashboard at: https://oiscreener.com")
 
 if __name__ == "__main__":
     populate_sample_data()

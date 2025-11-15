@@ -108,7 +108,7 @@ See **[Management Scripts](MANAGEMENT_SCRIPTS.md)** for detailed operational gui
 **Core System**
 - ✅ Real Massive.com Options API integration (Options Advanced tier, formerly Polygon.io)
 - ✅ Unified SQLite database with WAL mode (data/screener.db)
-- ✅ Web dashboard at http://157.245.214.224:3000
+- ✅ Web dashboard at https://oiscreener.com
 - ✅ Automated daily screening via cron (10 AM ET, weekdays)
 - ✅ Claude AI rationales for top picks
 - ✅ Telegram bot alerts with AI insights

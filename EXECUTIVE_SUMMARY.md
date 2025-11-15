@@ -127,7 +127,7 @@ The codebase follows rigorous engineering practices outlined in `CLAUDE.md`:
 │                                                                           │
 └─────────────────────────────────────────────────────────────────────────┘
          │
-         └──► Live Dashboard: http://157.245.214.224:3000
+         └──► Live Dashboard: https://oiscreener.com
 ```
 
 ### Data Flow Architecture
@@ -405,7 +405,7 @@ The algorithm is built on testable assumptions that can be validated over time:
 
 ### Web Interface
 
-**Live URL**: http://157.245.214.224:3000
+**Live URL**: https://oiscreener.com
 
 The dashboard provides a professional, filterable interface for exploring picks:
 
@@ -546,7 +546,7 @@ Similar format with top CSP picks and full rationales.
 
 **4. Footer Message**:
 ```
-📊 View all picks: http://157.245.214.224:3000
+📊 View all picks: https://oiscreener.com
 🤖 Generated with Options Income Screener v2.2
 
 ⚠️ For educational purposes only. Not financial advice.
@@ -767,8 +767,8 @@ For individual traders, the system offers immediate time savings and improved de
 ### Contact & Next Steps
 
 **System Access**:
-- Live Dashboard: http://157.245.214.224:3000
-- API Documentation: http://157.245.214.224:3000/api
+- Live Dashboard: https://oiscreener.com
+- API Documentation: https://oiscreener.com/api
 
 **Technical Resources**:
 - Full source code available

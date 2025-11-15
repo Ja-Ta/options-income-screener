@@ -26,7 +26,7 @@
   - [x] Saving real picks to database
   - [x] Syncing between Python and Node.js DBs
 - [x] **Web Dashboard**
-  - [x] Running on Digital Ocean (157.245.214.224:3000)
+  - [x] Running on Digital Ocean (https://oiscreener.com)
   - [x] Displaying picks with filtering
   - [x] Health endpoint
 - [x] **Telegram Integration**
@@ -147,7 +147,7 @@
 The MVP is now functional with:
 1. ✅ Real options data from Polygon API
 2. ✅ Picks stored in database with Greeks and IV
-3. ✅ Dashboard displaying picks at http://157.245.214.224:3000
+3. ✅ Dashboard displaying picks at https://oiscreener.com
 4. ✅ Telegram alerts working with AI rationales
 5. ✅ Scoring based on real market data
 6. ✅ Claude AI generating human-readable insights
@@ -166,7 +166,7 @@ The MVP is now functional with:
 ./restart_api.sh    # Restart server
 
 # View dashboard
-open http://157.245.214.224:3000
+open https://oiscreener.com
 
 # Check database
 sqlite3 data/screener.db "SELECT * FROM picks ORDER BY created_at DESC LIMIT 10;"
@@ -220,7 +220,7 @@ node_ui/
 
 **Production:** `./run_daily_screening.sh` (automated via cron)
 **API Server:** `./start_api.sh` (manual startup)
-**Dashboard:** http://157.245.214.224:3000
+**Dashboard:** https://oiscreener.com
 
 ---
 

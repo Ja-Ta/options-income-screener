@@ -2,7 +2,7 @@
 
 ## Base URL
 ```
-http://157.245.214.224:3000/api
+https://oiscreener.com/api
 ```
 
 ## Overview
@@ -58,7 +58,7 @@ Get filtered picks with optional query parameters.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/picks?strategy=CSP&minScore=0.59&limit=5"
+curl "https://oiscreener.com/api/picks?strategy=CSP&minScore=0.59&limit=5"
 ```
 
 **Response:**
@@ -92,7 +92,7 @@ Get picks from the most recent date.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/picks/latest"
+curl "https://oiscreener.com/api/picks/latest"
 ```
 
 **Response:**
@@ -113,7 +113,7 @@ Get top-scoring picks across all dates.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/picks/top?limit=5"
+curl "https://oiscreener.com/api/picks/top?limit=5"
 ```
 
 ### GET /api/picks/date/:date
@@ -121,7 +121,7 @@ Get all picks for a specific date.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/picks/date/2025-11-02"
+curl "https://oiscreener.com/api/picks/date/2025-11-02"
 ```
 
 **Response:**
@@ -139,7 +139,7 @@ Get a single pick by ID.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/picks/13"
+curl "https://oiscreener.com/api/picks/13"
 ```
 
 **Response:**
@@ -159,7 +159,7 @@ Get overall statistics across all picks.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/stats"
+curl "https://oiscreener.com/api/stats"
 ```
 
 **Response:**
@@ -200,7 +200,7 @@ Get daily summary for a specific date.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/stats/daily/2025-11-02"
+curl "https://oiscreener.com/api/stats/daily/2025-11-02"
 ```
 
 ### GET /api/stats/history
@@ -211,7 +211,7 @@ Get historical performance data.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/stats/history?days=7"
+curl "https://oiscreener.com/api/stats/history?days=7"
 ```
 
 ### GET /api/stats/dates
@@ -219,7 +219,7 @@ Get list of all available dates with pick counts.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/stats/dates"
+curl "https://oiscreener.com/api/stats/dates"
 ```
 
 **Response:**
@@ -239,7 +239,7 @@ Get the most recent date with picks.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/stats/latest-date"
+curl "https://oiscreener.com/api/stats/latest-date"
 ```
 
 ---
@@ -255,7 +255,7 @@ Search picks by symbol (case-insensitive partial match).
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/symbols/search?q=AAPL"
+curl "https://oiscreener.com/api/symbols/search?q=AAPL"
 ```
 
 **Response:**
@@ -277,7 +277,7 @@ Get historical picks for a specific symbol.
 
 **Example:**
 ```bash
-curl "http://157.245.214.224:3000/api/symbols/AAPL/history"
+curl "https://oiscreener.com/api/symbols/AAPL/history"
 ```
 
 **Response:**
@@ -354,22 +354,22 @@ CORS is enabled for all origins. The API can be accessed from web browsers.
 
 ### Get today's top CSP picks with score > 0.59
 ```bash
-curl "http://157.245.214.224:3000/api/picks?strategy=CSP&minScore=0.59&limit=5"
+curl "https://oiscreener.com/api/picks?strategy=CSP&minScore=0.59&limit=5"
 ```
 
 ### Get all AAPL picks from the last 30 days
 ```bash
-curl "http://157.245.214.224:3000/api/symbols/AAPL/history?days=30"
+curl "https://oiscreener.com/api/symbols/AAPL/history?days=30"
 ```
 
 ### Get picks for a specific date
 ```bash
-curl "http://157.245.214.224:3000/api/picks/date/2025-11-02"
+curl "https://oiscreener.com/api/picks/date/2025-11-02"
 ```
 
 ### Get overall statistics
 ```bash
-curl "http://157.245.214.224:3000/api/stats"
+curl "https://oiscreener.com/api/stats"
 ```
 
 ---
@@ -377,7 +377,7 @@ curl "http://157.245.214.224:3000/api/stats"
 ## Support
 
 For issues or questions:
-- Dashboard: http://157.245.214.224:3000
+- Dashboard: https://oiscreener.com
 - GitHub: Check project repository
 - Documentation: See README.md and PROJECT_STATUS.md
 
