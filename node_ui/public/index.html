@@ -71,6 +71,27 @@
       text-align: left;
       padding: 12px;
       border-bottom: 2px solid #ddd;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      transition: background 0.2s;
+    }
+    th:hover {
+      background: #e8e8e8;
+    }
+    th.sortable::after {
+      content: ' ⇅';
+      color: #ccc;
+      font-size: 0.9rem;
+      margin-left: 4px;
+    }
+    th.sorted-asc::after {
+      content: ' ▲';
+      color: #4CAF50;
+    }
+    th.sorted-desc::after {
+      content: ' ▼';
+      color: #4CAF50;
     }
     td {
       padding: 10px 12px;
@@ -169,26 +190,55 @@
       color: #666;
       margin-top: 5px;
     }
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #ddd;
+    }
+    .tab {
+      padding: 12px 24px;
+      background: white;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #666;
+      transition: all 0.3s ease;
+    }
+    .tab:hover {
+      background: #f9f9f9;
+      color: #333;
+    }
+    .tab.active {
+      color: #4CAF50;
+      border-bottom-color: #4CAF50;
+      background: white;
+    }
+    .tab-icon {
+      margin-right: 8px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>📈 Options Income Screener Dashboard</h1>
 
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('CC')">
+        <span class="tab-icon">📘</span>Covered Calls
+      </button>
+      <button class="tab" onclick="switchTab('CSP')">
+        <span class="tab-icon">📙</span>Cash-Secured Puts
+      </button>
+    </div>
+
     <div class="controls">
       <div class="control-group">
         <label>Date</label>
         <select id="dateSelect">
           <option value="latest">Latest</option>
-        </select>
-      </div>
-
-      <div class="control-group">
-        <label>Strategy</label>
-        <select id="strategySelect">
-          <option value="">All</option>
-          <option value="CC">Covered Calls</option>
-          <option value="CSP">Cash-Secured Puts</option>
         </select>
       </div>
 
@@ -226,6 +276,63 @@
   </div>
 
   <script>
+    // Active strategy (tab)
+    let activeStrategy = 'CC';
+
+    // Sorting state
+    let currentPicks = [];
+    let sortColumn = 'score';
+    let sortDirection = 'desc';
+
+    // Switch between tabs
+    function switchTab(strategy) {
+      activeStrategy = strategy;
+
+      // Update tab styling
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      event.target.closest('.tab').classList.add('active');
+
+      // Reload picks with new strategy
+      loadPicks();
+    }
+
+    // Sort picks by column
+    function sortBy(column) {
+      // Toggle direction if clicking same column
+      if (sortColumn === column) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortColumn = column;
+        sortDirection = 'desc'; // Default to descending for new column
+      }
+
+      // Sort the current picks
+      const sorted = [...currentPicks].sort((a, b) => {
+        let aVal = a[column];
+        let bVal = b[column];
+
+        // Handle null/undefined values
+        if (aVal === null || aVal === undefined) return 1;
+        if (bVal === null || bVal === undefined) return -1;
+
+        // Handle string comparisons (case-insensitive)
+        if (typeof aVal === 'string') {
+          aVal = aVal.toLowerCase();
+          bVal = bVal.toLowerCase();
+        }
+
+        // Compare
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      // Re-display with sorted data
+      displayPicks(sorted);
+    }
+
     // Company name mapping from expanded_universe.csv (all 111 symbols)
     const COMPANY_NAMES = {
       'AAPL': 'Apple Inc.',
@@ -375,12 +482,13 @@
 
       try {
         const date = document.getElementById('dateSelect').value;
-        const strategy = document.getElementById('strategySelect').value;
+        const strategy = activeStrategy;  // Use active tab strategy
         const minScore = document.getElementById('minScore').value;
         const minIVR = document.getElementById('minIVR').value;
-        const sentimentSignal = document.getElementById('sentimentSelect').value;  // NEW
+        const sentimentSignal = document.getElementById('sentimentSelect').value;
 
-        let url = date === 'latest' ? '/api/picks/latest' :
+        let url = date === 'latest' ?
+          `/api/picks/latest?strategy=${strategy}` :
           `/api/picks?date=${date}&strategy=${strategy}&minScore=${minScore}&minIVR=${minIVR}&sentimentSignal=${sentimentSignal}`;
 
         const resp = await fetch(url);
@@ -389,7 +497,9 @@
         loading.style.display = 'none';
 
         if (data.success) {
-          displayPicks(data.picks);
+          currentPicks = data.picks;
+          // Apply current sort
+          sortBy(sortColumn);
         } else {
           throw new Error(data.error);
         }
@@ -409,25 +519,33 @@
         return;
       }
 
+      // Helper to get sort class for header
+      const getSortClass = (col) => {
+        if (sortColumn === col) {
+          return sortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc';
+        }
+        return 'sortable';
+      };
+
       let html = `
         <h2>Found ${picks.length} Picks</h2>
         <table>
           <thead>
             <tr>
-              <th>Symbol</th>
-              <th>Stock Price</th>
-              <th>Div Yield</th>
-              <th>Earnings</th>
-              <th>Strategy</th>
-              <th>Sentiment 🎯</th>
-              <th>P/C Ratio</th>
-              <th>CMF</th>
-              <th>Strike</th>
-              <th>Expiry</th>
-              <th>Premium</th>
-              <th>ROI (30d)</th>
-              <th>IV Rank</th>
-              <th>Score</th>
+              <th class="${getSortClass('symbol')}" onclick="sortBy('symbol')">Symbol</th>
+              <th class="${getSortClass('stock_price')}" onclick="sortBy('stock_price')">Stock Price</th>
+              <th class="${getSortClass('dividend_yield')}" onclick="sortBy('dividend_yield')">Div Yield</th>
+              <th class="${getSortClass('earnings_days_until')}" onclick="sortBy('earnings_days_until')">Earnings</th>
+              <th class="${getSortClass('strategy')}" onclick="sortBy('strategy')">Strategy</th>
+              <th class="${getSortClass('contrarian_signal')}" onclick="sortBy('contrarian_signal')">Sentiment 🎯</th>
+              <th class="${getSortClass('put_call_ratio')}" onclick="sortBy('put_call_ratio')">P/C Ratio</th>
+              <th class="${getSortClass('cmf_20')}" onclick="sortBy('cmf_20')">CMF</th>
+              <th class="${getSortClass('strike')}" onclick="sortBy('strike')">Strike</th>
+              <th class="${getSortClass('expiry')}" onclick="sortBy('expiry')">Expiry</th>
+              <th class="${getSortClass('premium')}" onclick="sortBy('premium')">Premium</th>
+              <th class="${getSortClass('roi_30d')}" onclick="sortBy('roi_30d')">ROI (30d)</th>
+              <th class="${getSortClass('iv_rank')}" onclick="sortBy('iv_rank')">IV Rank</th>
+              <th class="${getSortClass('score')}" onclick="sortBy('score')">Score</th>
             </tr>
           </thead>
           <tbody>

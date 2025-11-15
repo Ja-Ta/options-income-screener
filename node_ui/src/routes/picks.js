@@ -53,7 +53,7 @@ router.get('/', (req, res) => {
 
 /**
  * GET /api/picks/latest
- * Get picks from the most recent date
+ * Get picks from the most recent date with optional filters
  */
 router.get('/latest', (req, res) => {
   try {
@@ -67,7 +67,29 @@ router.get('/latest', (req, res) => {
       });
     }
 
-    const picks = db.getPicksByDate(latestDate);
+    // Apply filters if provided
+    const {
+      strategy,
+      minScore = 0,
+      minIVR = 0,
+      minROI = 0,
+      sentimentSignal,
+      limit = 100,
+      offset = 0
+    } = req.query;
+
+    const filters = {
+      date: latestDate,
+      strategy,
+      minScore: parseFloat(minScore),
+      minIVR: parseFloat(minIVR),
+      minROI: parseFloat(minROI),
+      sentimentSignal,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    };
+
+    const picks = db.getFilteredPicks(filters);
 
     res.json({
       success: true,
