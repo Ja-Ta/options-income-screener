@@ -93,6 +93,7 @@ class DatabaseService {
       minScore = 0,
       minIVR = 0,
       minROI = 0,
+      sentimentSignal,  // NEW: Filter by contrarian signal
       limit = 100,
       offset = 0
     } = filters;
@@ -129,6 +130,12 @@ class DatabaseService {
     if (strategy) {
       query += ` AND p.strategy = ?`;
       params.push(strategy);
+    }
+
+    // NEW: Add sentiment filter
+    if (sentimentSignal) {
+      query += ` AND p.contrarian_signal = ?`;
+      params.push(sentimentSignal);
     }
 
     query += ` AND p.score >= ? AND p.iv_rank >= ? AND p.roi_30d >= ?`;

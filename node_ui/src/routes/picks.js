@@ -19,6 +19,7 @@ router.get('/', (req, res) => {
       minScore = 0,
       minIVR = 0,
       minROI = 0,
+      sentimentSignal,  // NEW: Filter by contrarian signal (long/short/none)
       limit = 100,
       offset = 0
     } = req.query;
@@ -29,6 +30,7 @@ router.get('/', (req, res) => {
       minScore: parseFloat(minScore),
       minIVR: parseFloat(minIVR),
       minROI: parseFloat(minROI),
+      sentimentSignal,  // NEW: Add sentiment filter
       limit: parseInt(limit),
       offset: parseInt(offset)
     };

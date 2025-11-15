@@ -48,6 +48,7 @@ def cc_score(
     gamma: float = 0.0,
     vega: float = 0.0,
     below_200sma: bool = False,
+    contrarian_signal: str = 'none',
     additional_factors: Dict[str, Any] = None
 ) -> float:
     """
@@ -55,7 +56,7 @@ def cc_score(
 
     Formula:
     Base Score = w1*IV_Rank + w2*ROI + w3*Trend + w4*Dividend + w5*Theta + w6*Gamma + w7*Vega
-    Final Score = Base Score * Penalties
+    Final Score = Base Score * Penalties * Sentiment_Adjustment
 
     Args:
         iv_rank: IV Rank percentage (0-100)
@@ -66,6 +67,7 @@ def cc_score(
         gamma: Gamma (delta change per $1 stock move)
         vega: Vega (price change per 1% IV change)
         below_200sma: Whether stock is below 200-day SMA
+        contrarian_signal: Sentiment-based contrarian signal ('long', 'short', 'none')
         additional_factors: Optional dict with extra scoring factors
 
     Returns:
@@ -154,6 +156,13 @@ def cc_score(
             # Light penalty for earnings 21-30 days out
             final_score *= 0.93
 
+    # Apply sentiment-based adjustment (v2.7)
+    # For CCs, we want upside potential when crowd is pessimistic (LONG signal)
+    if contrarian_signal == 'long':
+        final_score *= 1.10  # 10% boost for contrarian long opportunity
+    elif contrarian_signal == 'short':
+        final_score *= 0.95  # 5% penalty - crowd too optimistic, limited upside
+
     # Ensure score stays in bounds
     return max(0.0, min(1.0, final_score))
 
@@ -174,6 +183,7 @@ def score_cc_pick(pick: Dict[str, Any]) -> float:
     trend_strength = pick.get('trend_strength', 0)
     dividend_yield = pick.get('dividend_yield', 0)
     below_200sma = pick.get('below_200sma', False)
+    contrarian_signal = pick.get('contrarian_signal', 'none')
 
     # Extract Greeks
     theta = pick.get('theta', 0.0)
@@ -201,6 +211,7 @@ def score_cc_pick(pick: Dict[str, Any]) -> float:
         gamma=gamma,
         vega=vega,
         below_200sma=below_200sma,
+        contrarian_signal=contrarian_signal,
         additional_factors=additional
     )
 

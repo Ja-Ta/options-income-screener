@@ -22,6 +22,8 @@ load_dotenv()
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from ..data.real_options_fetcher import RealOptionsFetcher
+from ..data.sentiment_aggregator import SentimentAggregator
+from ..screeners.sentiment_filter import SentimentFilter, FilterConfig
 from ..services.telegram_service import TelegramService
 from ..services.claude_service import ClaudeService
 from ..services.monitoring_service import MonitoringService
@@ -44,12 +46,13 @@ class ProductionPipeline:
     """
 
     @staticmethod
-    def load_universe_symbols(universe_file: str = "python_app/src/data/universe.csv") -> List[str]:
+    def load_universe_symbols(universe_file: str = "python_app/src/data/expanded_universe.csv") -> List[str]:
         """
         Load symbols from universe CSV file.
 
         Args:
             universe_file: Path to universe CSV file (relative to project root)
+                          Defaults to expanded_universe.csv for sentiment analysis
 
         Returns:
             List of symbol strings
@@ -94,6 +97,12 @@ class ProductionPipeline:
 
         # Initialize services
         self.fetcher = RealOptionsFetcher(api_key)
+        self.sentiment_aggregator = SentimentAggregator(self.fetcher)
+        self.sentiment_filter = SentimentFilter(FilterConfig(
+            sentiment_percentile_cutoff=85,
+            max_symbols_to_screen=20,  # Top 20 sentiment-ranked symbols
+            enabled=True
+        ))
         self.telegram = TelegramService()
         self.claude = ClaudeService()
         self.monitoring = MonitoringService()
@@ -116,6 +125,114 @@ class ProductionPipeline:
             'api_calls': 0,
             'errors': []
         }
+
+    def apply_sentiment_prefilter(self, all_symbols: List[str]) -> tuple[List[str], Dict]:
+        """
+        Apply sentiment-based pre-filtering to universe before screening.
+
+        Args:
+            all_symbols: Complete list of symbols to analyze
+
+        Returns:
+            Tuple of (filtered_symbols, sentiment_metrics_dict)
+        """
+        today = date.today()
+
+        logger.info(f"\n{'='*60}")
+        logger.info("SENTIMENT PRE-FILTER (v2.7)")
+        logger.info(f"{'='*60}")
+        logger.info(f"Analyzing {len(all_symbols)} symbols for sentiment extremes...")
+
+        # Fetch sentiment metrics for all symbols
+        try:
+            sentiment_metrics = self.sentiment_aggregator.fetch_sentiment_metrics_batch(all_symbols)
+            logger.info(f"✓ Fetched sentiment data for {len(sentiment_metrics)} symbols")
+        except Exception as e:
+            logger.error(f"Sentiment analysis failed: {e}")
+            logger.warning("Proceeding without sentiment filtering")
+            return all_symbols, {}
+
+        # Save sentiment metrics to database
+        try:
+            conn = sqlite3.connect(self.python_db_path)
+            cursor = conn.cursor()
+
+            for symbol, metrics in sentiment_metrics.items():
+                cursor.execute('''
+                    INSERT OR REPLACE INTO sentiment_metrics (
+                        symbol, asof, put_call_ratio_volume, put_call_ratio_oi,
+                        total_call_volume, total_put_volume, total_call_oi, total_put_oi,
+                        cmf_20, sentiment_extreme, contrarian_signal,
+                        sentiment_score, sentiment_rank, data_quality, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                ''', (
+                    symbol, today.isoformat(),
+                    metrics.put_call_ratio_volume, metrics.put_call_ratio_oi,
+                    metrics.total_call_volume, metrics.total_put_volume,
+                    metrics.total_call_oi, metrics.total_put_oi,
+                    metrics.cmf_20, metrics.sentiment_extreme,
+                    metrics.contrarian_signal, metrics.sentiment_score,
+                    metrics.sentiment_rank, metrics.data_quality
+                ))
+
+            conn.commit()
+            conn.close()
+            logger.info(f"✓ Saved {len(sentiment_metrics)} sentiment records to database")
+        except Exception as e:
+            logger.warning(f"Could not save sentiment metrics: {e}")
+
+        # Apply two-step filter
+        filtered_symbols, filter_reasons = self.sentiment_filter.apply_two_step_filter(sentiment_metrics)
+
+        logger.info(f"\n{'─'*60}")
+        logger.info("FILTER RESULTS")
+        logger.info(f"{'─'*60}")
+        logger.info(f"  Input symbols:       {len(all_symbols)}")
+        logger.info(f"  Analyzed:            {len(sentiment_metrics)}")
+        logger.info(f"  Passed filter:       {len(filtered_symbols)}")
+        logger.info(f"  Filter rate:         {len(filtered_symbols)/len(sentiment_metrics)*100:.1f}%")
+
+        # Log top contrarian opportunities
+        if filtered_symbols:
+            logger.info(f"\n  Top Contrarian Opportunities:")
+            for symbol in filtered_symbols[:10]:
+                m = sentiment_metrics[symbol]
+                pc_str = f"{m.put_call_ratio_volume:.2f}" if m.put_call_ratio_volume else "N/A"
+                cmf_str = f"{m.cmf_20:+.3f}" if m.cmf_20 else "N/A"
+                logger.info(f"    {symbol:<6} | {m.contrarian_signal.upper():<6} | P/C: {pc_str:<6} | CMF: {cmf_str:<7} | Rank: {m.sentiment_rank}th")
+
+        # Log universe scan results to database
+        try:
+            conn = sqlite3.connect(self.python_db_path)
+            cursor = conn.cursor()
+
+            for symbol in all_symbols:
+                if symbol in sentiment_metrics:
+                    m = sentiment_metrics[symbol]
+                    passed = symbol in filtered_symbols
+                    reason = filter_reasons.get(symbol, "Did not pass sentiment filter")
+
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO universe_scan_log (
+                            run_date, symbol, scanned, passed_sentiment_filter,
+                            sentiment_score, sentiment_rank, contrarian_signal,
+                            exclusion_reason, included_in_screening, created_at
+                        ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, datetime('now'))
+                    ''', (
+                        today.isoformat(), symbol, 1 if passed else 0,
+                        m.sentiment_score, m.sentiment_rank, m.contrarian_signal,
+                        None if passed else reason, 1 if passed else 0
+                    ))
+
+            conn.commit()
+            conn.close()
+            logger.info(f"✓ Logged scan results for {len(all_symbols)} symbols")
+        except Exception as e:
+            logger.warning(f"Could not log scan results: {e}")
+
+        logger.info(f"{'='*60}\n")
+
+        return filtered_symbols, sentiment_metrics
 
     def calculate_score(self, option: Dict, strategy: str) -> float:
         """
@@ -324,6 +441,15 @@ class ProductionPipeline:
 
                 logger.info(f"  Found {len(cc_picks)} CC and {len(csp_picks)} CSP candidates for {symbol}")
 
+                # Attach sentiment metrics to picks (if available)
+                sentiment_data = getattr(self, '_current_sentiment_metrics', {}).get(symbol)
+                if sentiment_data:
+                    for pick in cc_picks + csp_picks:
+                        pick['put_call_ratio'] = sentiment_data.put_call_ratio_volume
+                        pick['cmf_20'] = sentiment_data.cmf_20
+                        pick['sentiment_score'] = sentiment_data.sentiment_score
+                        pick['contrarian_signal'] = sentiment_data.contrarian_signal
+
                 return {
                     'symbol': symbol,
                     'cc_picks': cc_picks[:2],  # Top 2 of each
@@ -377,8 +503,9 @@ class ProductionPipeline:
                         INSERT INTO picks (
                             date, asof, symbol, strategy, strike, expiry,
                             premium, stock_price, roi_30d, annualized_return,
-                            iv_rank, score, trend, earnings_days, dividend_yield
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            iv_rank, score, trend, earnings_days, dividend_yield,
+                            put_call_ratio, cmf_20, sentiment_score, contrarian_signal
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         today.isoformat(), today.isoformat(),
                         pick['symbol'], pick['strategy'],
@@ -387,7 +514,9 @@ class ProductionPipeline:
                         pick['roi_30d'], pick['annualized_return'],
                         iv_rank, pick['score'],
                         pick['trend'], pick['earnings_days'],
-                        pick.get('dividend_yield', 0)
+                        pick.get('dividend_yield', 0),
+                        pick.get('put_call_ratio'), pick.get('cmf_20'),
+                        pick.get('sentiment_score', 0.5), pick.get('contrarian_signal', 'none')
                     ))
 
                     pick_id = cursor.lastrowid
@@ -420,8 +549,9 @@ class ProductionPipeline:
                             INSERT INTO picks (
                                 date, asof, symbol, strategy, strike, expiry,
                                 premium, stock_price, roi_30d, annualized_return,
-                                iv_rank, score, trend, earnings_days, dividend_yield
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                iv_rank, score, trend, earnings_days, dividend_yield,
+                                put_call_ratio, cmf_20, sentiment_score, contrarian_signal
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ''', (
                             today.isoformat(), today.isoformat(),
                             pick['symbol'], pick['strategy'],
@@ -430,7 +560,9 @@ class ProductionPipeline:
                             pick['roi_30d'], pick['annualized_return'],
                             iv_rank, pick['score'],
                             pick['trend'], pick['earnings_days'],
-                            pick.get('dividend_yield', 0)
+                            pick.get('dividend_yield', 0),
+                            pick.get('put_call_ratio'), pick.get('cmf_20'),
+                            pick.get('sentiment_score', 0.5), pick.get('contrarian_signal', 'none')
                         ))
                     except Exception as e:
                         logger.error(f"Error syncing pick to Node DB: {e}")
@@ -661,17 +793,26 @@ class ProductionPipeline:
         self.run_id = self.monitoring.record_pipeline_start()
 
         logger.info("="*60)
-        logger.info("PRODUCTION OPTIONS SCREENING PIPELINE")
+        logger.info("PRODUCTION OPTIONS SCREENING PIPELINE (v2.7 - SENTIMENT ENHANCED)")
         logger.info("="*60)
         logger.info(f"Date: {date.today()}")
         logger.info(f"Run ID: {self.run_id}")
-        logger.info(f"Screening {len(self.symbols)} symbols")
+        logger.info(f"Full universe: {len(self.symbols)} symbols")
+        logger.info("-"*60)
+
+        # Apply sentiment pre-filter
+        symbols_to_screen, sentiment_metrics = self.apply_sentiment_prefilter(self.symbols)
+
+        # Store sentiment metrics for use in screening
+        self._current_sentiment_metrics = sentiment_metrics
+
+        logger.info(f"Screening {len(symbols_to_screen)} sentiment-filtered symbols")
         logger.info("-"*60)
 
         all_picks = []
 
-        # Screen each symbol
-        for symbol in self.symbols:
+        # Screen each symbol (from filtered list)
+        for symbol in symbols_to_screen:
             self.stats['symbols_attempted'] += 1
 
             try:

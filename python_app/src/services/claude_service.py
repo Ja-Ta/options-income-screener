@@ -13,7 +13,7 @@ from ..config import ANTHROPIC_API_KEY
 from ..utils.logging import get_logger
 
 
-# Structured prompt following spec Section 15
+# Structured prompt following spec Section 15 (v2.7 - Sentiment Enhanced)
 CLAUDE_PROMPT = """You are an options mentor. Summarize this pick for a newer investor (≤120 words).
 Explain why it's attractive, key risks, and when to re-evaluate. Use plain English.
 
@@ -34,6 +34,12 @@ KEY METRICS:
 TECHNICAL:
 - Trend: {trend}
 - Above/Below 200 SMA: {sma_position}
+
+SENTIMENT (v2.7):
+- Contrarian Signal: {contrarian_signal}
+- Put/Call Ratio: {put_call_ratio}
+- Money Flow (CMF): {cmf_20}
+{sentiment_context}
 
 NOTES: {notes}
 """
@@ -85,6 +91,39 @@ class ClaudeService:
         # SMA position
         sma_position = "Above" if not pick.get('below_200sma', False) else "Below"
 
+        # Sentiment metrics (v2.7)
+        contrarian_signal = pick.get('contrarian_signal', 'none').upper()
+        put_call_ratio = pick.get('put_call_ratio')
+        cmf_20 = pick.get('cmf_20')
+
+        # Format sentiment values
+        if put_call_ratio is not None:
+            put_call_str = f"{put_call_ratio:.2f}"
+            if put_call_ratio > 1.5:
+                put_call_str += " (excessive pessimism)"
+            elif put_call_ratio < 0.7:
+                put_call_str += " (excessive optimism)"
+        else:
+            put_call_str = "N/A"
+
+        if cmf_20 is not None:
+            cmf_str = f"{cmf_20:+.3f}"
+            if cmf_20 > 0.1:
+                cmf_str += " (accumulation)"
+            elif cmf_20 < -0.1:
+                cmf_str += " (distribution)"
+            else:
+                cmf_str += " (neutral)"
+        else:
+            cmf_str = "N/A"
+
+        # Sentiment context explanation
+        sentiment_context = ""
+        if contrarian_signal == 'LONG':
+            sentiment_context = "→ Crowd fearful + Smart money buying = Contrarian long opportunity"
+        elif contrarian_signal == 'SHORT':
+            sentiment_context = "→ Crowd greedy + Smart money selling = Contrarian short signal"
+
         return CLAUDE_PROMPT.format(
             symbol=pick['symbol'],
             strategy=pick['strategy'],
@@ -98,6 +137,10 @@ class ClaudeService:
             extra_metrics=extra_metrics,
             trend=trend,
             sma_position=sma_position,
+            contrarian_signal=contrarian_signal,
+            put_call_ratio=put_call_str,
+            cmf_20=cmf_str,
+            sentiment_context=sentiment_context,
             notes=pick.get('notes', 'Standard setup')
         )
 

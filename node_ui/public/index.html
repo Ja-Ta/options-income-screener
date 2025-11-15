@@ -98,6 +98,56 @@
     .score-low { color: #c62828; }
     .loading { text-align: center; padding: 40px; color: #666; }
     .error { background: #ffebee; color: #c62828; padding: 15px; border-radius: 4px; }
+    .sentiment-long {
+      background: #e8f5e9;
+      color: #2e7d32;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .sentiment-short {
+      background: #ffebee;
+      color: #c62828;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .sentiment-none {
+      background: #f5f5f5;
+      color: #757575;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    .tooltip {
+      position: relative;
+      display: inline-block;
+      cursor: help;
+      border-bottom: 1px dotted #666;
+    }
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      width: 200px;
+      background-color: #333;
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 8px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -100px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 0.85rem;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -152,6 +202,16 @@
         <input type="number" id="minIVR" value="40" min="0" max="100" step="5">
       </div>
 
+      <div class="control-group">
+        <label>Sentiment Signal 🎯</label>
+        <select id="sentimentSelect">
+          <option value="">All</option>
+          <option value="long">🟢 LONG (Buy)</option>
+          <option value="short">🔴 SHORT (Sell)</option>
+          <option value="none">⚪ NONE (Neutral)</option>
+        </select>
+      </div>
+
       <button onclick="loadPicks()">Load Picks</button>
       <button onclick="loadStats()">View Stats</button>
     </div>
@@ -166,6 +226,121 @@
   </div>
 
   <script>
+    // Company name mapping from expanded_universe.csv (all 111 symbols)
+    const COMPANY_NAMES = {
+      'AAPL': 'Apple Inc.',
+      'MSFT': 'Microsoft Corporation',
+      'GOOGL': 'Alphabet Inc. Class A',
+      'AMZN': 'Amazon.com Inc.',
+      'META': 'Meta Platforms Inc.',
+      'NVDA': 'NVIDIA Corporation',
+      'TSLA': 'Tesla Inc.',
+      'AMD': 'Advanced Micro Devices Inc.',
+      'NFLX': 'Netflix Inc.',
+      'INTC': 'Intel Corporation',
+      'CRM': 'Salesforce Inc.',
+      'ORCL': 'Oracle Corporation',
+      'CSCO': 'Cisco Systems Inc.',
+      'ADBE': 'Adobe Inc.',
+      'AVGO': 'Broadcom Inc.',
+      'JPM': 'JPMorgan Chase & Co.',
+      'BAC': 'Bank of America Corp.',
+      'WFC': 'Wells Fargo & Company',
+      'GS': 'Goldman Sachs Group Inc.',
+      'MS': 'Morgan Stanley',
+      'C': 'Citigroup Inc.',
+      'BLK': 'BlackRock Inc.',
+      'SCHW': 'Charles Schwab Corporation',
+      'AXP': 'American Express Company',
+      'V': 'Visa Inc.',
+      'JNJ': 'Johnson & Johnson',
+      'UNH': 'UnitedHealth Group Inc.',
+      'LLY': 'Eli Lilly and Company',
+      'PFE': 'Pfizer Inc.',
+      'ABBV': 'AbbVie Inc.',
+      'TMO': 'Thermo Fisher Scientific Inc.',
+      'MRK': 'Merck & Co. Inc.',
+      'ABT': 'Abbott Laboratories',
+      'DHR': 'Danaher Corporation',
+      'BMY': 'Bristol-Myers Squibb Company',
+      'WMT': 'Walmart Inc.',
+      'PG': 'Procter & Gamble Company',
+      'KO': 'Coca-Cola Company',
+      'PEP': 'PepsiCo Inc.',
+      'COST': 'Costco Wholesale Corporation',
+      'HD': 'Home Depot Inc.',
+      'MCD': 'McDonald\'s Corporation',
+      'NKE': 'Nike Inc.',
+      'SBUX': 'Starbucks Corporation',
+      'TGT': 'Target Corporation',
+      'XOM': 'Exxon Mobil Corporation',
+      'CVX': 'Chevron Corporation',
+      'COP': 'ConocoPhillips',
+      'SLB': 'Schlumberger Limited',
+      'EOG': 'EOG Resources Inc.',
+      'BA': 'Boeing Company',
+      'CAT': 'Caterpillar Inc.',
+      'HON': 'Honeywell International Inc.',
+      'UPS': 'United Parcel Service Inc.',
+      'GE': 'General Electric Company',
+      'GME': 'GameStop Corp.',
+      'AMC': 'AMC Entertainment Holdings Inc.',
+      'BB': 'BlackBerry Limited',
+      'PLTR': 'Palantir Technologies Inc.',
+      'COIN': 'Coinbase Global Inc.',
+      'HOOD': 'Robinhood Markets Inc.',
+      'SOFI': 'SoFi Technologies Inc.',
+      'RIVN': 'Rivian Automotive Inc.',
+      'LCID': 'Lucid Group Inc.',
+      'NIO': 'NIO Inc.',
+      'PLUG': 'Plug Power Inc.',
+      'SPCE': 'Virgin Galactic Holdings Inc.',
+      'DKNG': 'DraftKings Inc.',
+      'SNAP': 'Snap Inc.',
+      'UBER': 'Uber Technologies Inc.',
+      'BEAM': 'Beam Therapeutics Inc.',
+      'ARCT': 'Arcturus Therapeutics Holdings Inc.',
+      'FLGT': 'Fulgent Genetics Inc.',
+      'ARVN': 'Arvinas Inc.',
+      'CRSP': 'CRISPR Therapeutics AG',
+      'BTAI': 'BioXcel Therapeutics Inc.',
+      'EDIT': 'Editas Medicine Inc.',
+      'IBRX': 'ImmunityBio Inc.',
+      'OGN': 'Organon & Co.',
+      'TWST': 'Twist Bioscience Corporation',
+      'FATE': 'Fate Therapeutics Inc.',
+      'SAVA': 'Cassava Sciences Inc.',
+      'AXSM': 'Axsome Therapeutics Inc.',
+      'MRNA': 'Moderna Inc.',
+      'BNTX': 'BioNTech SE',
+      'MU': 'Micron Technology Inc.',
+      'QCOM': 'QUALCOMM Inc.',
+      'AMAT': 'Applied Materials Inc.',
+      'LRCX': 'Lam Research Corporation',
+      'KLAC': 'KLA Corporation',
+      'T': 'AT&T Inc.',
+      'VZ': 'Verizon Communications Inc.',
+      'TMUS': 'T-Mobile US Inc.',
+      'CMCSA': 'Comcast Corporation',
+      'DIS': 'Walt Disney Company',
+      'SPG': 'Simon Property Group Inc.',
+      'PLD': 'Prologis Inc.',
+      'AMT': 'American Tower Corporation',
+      'LIN': 'Linde plc',
+      'APD': 'Air Products and Chemicals Inc.',
+      'FCX': 'Freeport-McMoRan Inc.',
+      'F': 'Ford Motor Company',
+      'GM': 'General Motors Company',
+      'ROKU': 'Roku Inc.',
+      'SQ': 'Block Inc.',
+      'PYPL': 'PayPal Holdings Inc.'
+    };
+
+    // Get company name for symbol
+    function getCompanyName(symbol) {
+      return COMPANY_NAMES[symbol] || symbol;
+    }
+
     // Load dates on startup
     async function loadDates() {
       try {
@@ -203,9 +378,10 @@
         const strategy = document.getElementById('strategySelect').value;
         const minScore = document.getElementById('minScore').value;
         const minIVR = document.getElementById('minIVR').value;
+        const sentimentSignal = document.getElementById('sentimentSelect').value;  // NEW
 
         let url = date === 'latest' ? '/api/picks/latest' :
-          `/api/picks?date=${date}&strategy=${strategy}&minScore=${minScore}&minIVR=${minIVR}`;
+          `/api/picks?date=${date}&strategy=${strategy}&minScore=${minScore}&minIVR=${minIVR}&sentimentSignal=${sentimentSignal}`;
 
         const resp = await fetch(url);
         const data = await resp.json();
@@ -243,6 +419,9 @@
               <th>Div Yield</th>
               <th>Earnings</th>
               <th>Strategy</th>
+              <th>Sentiment 🎯</th>
+              <th>P/C Ratio</th>
+              <th>CMF</th>
               <th>Strike</th>
               <th>Expiry</th>
               <th>Premium</th>
@@ -293,13 +472,80 @@
           }
         }
 
+        // Format sentiment data (v2.8)
+        let sentimentDisplay = '-';
+        let sentimentClass = 'sentiment-none';
+        if (p.contrarian_signal) {
+          const signal = p.contrarian_signal.toUpperCase();
+          if (signal === 'LONG') {
+            sentimentDisplay = '🟢 LONG';
+            sentimentClass = 'sentiment-long';
+          } else if (signal === 'SHORT') {
+            sentimentDisplay = '🔴 SHORT';
+            sentimentClass = 'sentiment-short';
+          } else {
+            sentimentDisplay = '⚪ NONE';
+            sentimentClass = 'sentiment-none';
+          }
+        }
+
+        // Format P/C ratio with tooltip
+        let pcDisplay = '-';
+        let pcTooltip = '';
+        if (p.put_call_ratio !== null && p.put_call_ratio !== undefined) {
+          const pc = p.put_call_ratio;
+          pcDisplay = pc.toFixed(2);
+          if (pc >= 1.5) {
+            pcTooltip = 'Crowd fearful - High pessimism';
+          } else if (pc >= 1.2) {
+            pcTooltip = 'Bearish tilt';
+          } else if (pc <= 0.7) {
+            pcTooltip = 'Crowd greedy - High optimism';
+          } else if (pc <= 0.9) {
+            pcTooltip = 'Bullish tilt';
+          } else {
+            pcTooltip = 'Balanced sentiment';
+          }
+        }
+
+        // Format CMF with tooltip
+        let cmfDisplay = '-';
+        let cmfTooltip = '';
+        let cmfStyle = '';
+        if (p.cmf_20 !== null && p.cmf_20 !== undefined) {
+          const cmf = p.cmf_20;
+          cmfDisplay = cmf >= 0 ? `+${cmf.toFixed(3)}` : cmf.toFixed(3);
+          if (cmf >= 0.15) {
+            cmfTooltip = 'Strong accumulation - Smart money buying';
+            cmfStyle = 'color: #2e7d32; font-weight: 600;';
+          } else if (cmf >= 0.05) {
+            cmfTooltip = 'Accumulation - Buying pressure';
+            cmfStyle = 'color: #7cb342;';
+          } else if (cmf <= -0.15) {
+            cmfTooltip = 'Strong distribution - Smart money selling';
+            cmfStyle = 'color: #c62828; font-weight: 600;';
+          } else if (cmf <= -0.05) {
+            cmfTooltip = 'Distribution - Selling pressure';
+            cmfStyle = 'color: #f57c00;';
+          } else {
+            cmfTooltip = 'Neutral money flow';
+            cmfStyle = 'color: #757575;';
+          }
+        }
+
+        // Get company name for tooltip
+        const companyName = getCompanyName(p.symbol);
+
         html += `
           <tr>
-            <td><strong>${p.symbol}</strong></td>
+            <td><div class="tooltip"><strong>${p.symbol}</strong><span class="tooltiptext">${companyName}</span></div></td>
             <td>$${p.stock_price ? p.stock_price.toFixed(2) : 'N/A'}</td>
             <td style="${divYieldStyle}">${divYieldDisplay}</td>
             <td style="${earningsStyle}">${earningsDisplay}</td>
             <td><span class="strategy-${p.strategy}">${p.strategy}</span></td>
+            <td><span class="${sentimentClass}">${sentimentDisplay}</span></td>
+            <td>${pcTooltip ? `<div class="tooltip">${pcDisplay}<span class="tooltiptext">${pcTooltip}</span></div>` : pcDisplay}</td>
+            <td style="${cmfStyle}">${cmfTooltip ? `<div class="tooltip">${cmfDisplay}<span class="tooltiptext">${cmfTooltip}</span></div>` : cmfDisplay}</td>
             <td>$${p.strike}</td>
             <td>${p.expiry}</td>
             <td>$${p.premium.toFixed(2)}</td>

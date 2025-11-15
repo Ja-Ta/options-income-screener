@@ -82,6 +82,54 @@ class TelegramService:
         if pick['strategy'] == 'CSP' and 'margin_of_safety' in pick:
             message += f"• Safety: {pick['margin_of_safety']:.1%} OTM\n"
 
+        # Add sentiment analysis (v2.7)
+        if pick.get('contrarian_signal') or pick.get('put_call_ratio') or pick.get('cmf_20'):
+            message += f"\n🎯 **Sentiment (v2.7):**\n"
+
+            # Contrarian signal with emoji and explanation
+            if pick.get('contrarian_signal'):
+                signal = pick['contrarian_signal'].upper()
+                if signal == 'LONG':
+                    signal_emoji = '🟢'
+                    signal_text = 'Contrarian buy'
+                elif signal == 'SHORT':
+                    signal_emoji = '🔴'
+                    signal_text = 'Contrarian sell'
+                else:
+                    signal_emoji = '⚪'
+                    signal_text = 'Neutral'
+                message += f"• Signal: {signal} {signal_emoji} ({signal_text})\n"
+
+            # Put/Call ratio with interpretation
+            if pick.get('put_call_ratio') is not None:
+                pc_ratio = pick['put_call_ratio']
+                if pc_ratio >= 1.5:
+                    pc_context = 'Crowd fearful'
+                elif pc_ratio <= 0.7:
+                    pc_context = 'Crowd greedy'
+                elif pc_ratio >= 1.2:
+                    pc_context = 'Bearish tilt'
+                elif pc_ratio <= 0.9:
+                    pc_context = 'Bullish tilt'
+                else:
+                    pc_context = 'Balanced'
+                message += f"• P/C Ratio: {pc_ratio:.2f} ({pc_context})\n"
+
+            # CMF (Chaikin Money Flow) with interpretation
+            if pick.get('cmf_20') is not None:
+                cmf = pick['cmf_20']
+                if cmf >= 0.15:
+                    cmf_context = 'Strong accumulation'
+                elif cmf >= 0.05:
+                    cmf_context = 'Accumulation'
+                elif cmf <= -0.15:
+                    cmf_context = 'Strong distribution'
+                elif cmf <= -0.05:
+                    cmf_context = 'Distribution'
+                else:
+                    cmf_context = 'Neutral flow'
+                message += f"• CMF: {cmf:+.3f} ({cmf_context})\n"
+
         # Add earnings proximity warning with color-coded emojis
         if pick.get('earnings_date') and pick.get('earnings_days_until') is not None:
             days_until = pick['earnings_days_until']

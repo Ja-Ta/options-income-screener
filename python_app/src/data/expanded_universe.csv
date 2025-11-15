@@ -1,0 +1,107 @@
+symbol,name,sector,avg_daily_volume_millions,options_liquidity
+AAPL,Apple Inc.,Technology,60.0,high
+MSFT,Microsoft Corporation,Technology,25.0,high
+GOOGL,Alphabet Inc. Class A,Technology,20.0,high
+AMZN,Amazon.com Inc.,Technology,50.0,high
+META,Meta Platforms Inc.,Technology,15.0,high
+NVDA,NVIDIA Corporation,Technology,300.0,high
+TSLA,Tesla Inc.,Automotive,120.0,high
+AMD,Advanced Micro Devices Inc.,Technology,80.0,high
+NFLX,Netflix Inc.,Technology,8.0,high
+INTC,Intel Corporation,Technology,40.0,high
+CRM,Salesforce Inc.,Technology,7.0,medium
+ORCL,Oracle Corporation,Technology,8.0,medium
+CSCO,Cisco Systems Inc.,Technology,20.0,medium
+ADBE,Adobe Inc.,Technology,3.0,medium
+AVGO,Broadcom Inc.,Technology,2.0,medium
+JPM,JPMorgan Chase & Co.,Financials,12.0,high
+BAC,Bank of America Corp.,Financials,45.0,high
+WFC,Wells Fargo & Company,Financials,25.0,high
+GS,Goldman Sachs Group Inc.,Financials,2.5,medium
+MS,Morgan Stanley,Financials,8.0,medium
+C,Citigroup Inc.,Financials,20.0,medium
+BLK,BlackRock Inc.,Financials,0.5,medium
+SCHW,Charles Schwab Corporation,Financials,7.0,medium
+AXP,American Express Company,Financials,3.0,medium
+V,Visa Inc.,Financials,7.0,high
+JNJ,Johnson & Johnson,Healthcare,10.0,medium
+UNH,UnitedHealth Group Inc.,Healthcare,3.0,medium
+LLY,Eli Lilly and Company,Healthcare,4.0,medium
+PFE,Pfizer Inc.,Healthcare,30.0,medium
+ABBV,AbbVie Inc.,Healthcare,7.0,medium
+TMO,Thermo Fisher Scientific Inc.,Healthcare,1.5,medium
+MRK,Merck & Co. Inc.,Healthcare,10.0,medium
+ABT,Abbott Laboratories,Healthcare,5.0,medium
+DHR,Danaher Corporation,Healthcare,2.0,medium
+BMY,Bristol-Myers Squibb Company,Healthcare,12.0,medium
+WMT,Walmart Inc.,Consumer,8.0,medium
+PG,Procter & Gamble Company,Consumer,7.0,medium
+KO,Coca-Cola Company,Consumer,15.0,medium
+PEP,PepsiCo Inc.,Consumer,5.0,medium
+COST,Costco Wholesale Corporation,Consumer,2.0,medium
+HD,Home Depot Inc.,Consumer,4.0,medium
+MCD,McDonald's Corporation,Consumer,3.0,medium
+NKE,Nike Inc.,Consumer,6.0,medium
+SBUX,Starbucks Corporation,Consumer,8.0,medium
+TGT,Target Corporation,Consumer,4.0,medium
+XOM,Exxon Mobil Corporation,Energy,20.0,medium
+CVX,Chevron Corporation,Energy,8.0,medium
+COP,ConocoPhillips,Energy,7.0,medium
+SLB,Schlumberger Limited,Energy,10.0,medium
+EOG,EOG Resources Inc.,Energy,3.0,medium
+BA,Boeing Company,Industrials,7.0,medium
+CAT,Caterpillar Inc.,Industrials,4.0,medium
+HON,Honeywell International Inc.,Industrials,3.0,medium
+UPS,United Parcel Service Inc.,Industrials,3.0,medium
+GE,General Electric Company,Industrials,60.0,high
+GME,GameStop Corp.,Consumer,8.0,high
+AMC,AMC Entertainment Holdings Inc.,Consumer,30.0,high
+BB,BlackBerry Limited,Technology,5.0,medium
+PLTR,Palantir Technologies Inc.,Technology,50.0,high
+COIN,Coinbase Global Inc.,Financials,10.0,high
+HOOD,Robinhood Markets Inc.,Financials,25.0,high
+SOFI,SoFi Technologies Inc.,Financials,40.0,high
+RIVN,Rivian Automotive Inc.,Automotive,25.0,medium
+LCID,Lucid Group Inc.,Automotive,20.0,medium
+NIO,NIO Inc.,Automotive,40.0,medium
+PLUG,Plug Power Inc.,Energy,25.0,medium
+SPCE,Virgin Galactic Holdings Inc.,Aerospace,5.0,medium
+DKNG,DraftKings Inc.,Consumer,12.0,medium
+SNAP,Snap Inc.,Technology,30.0,medium
+UBER,Uber Technologies Inc.,Technology,25.0,medium
+BEAM,Beam Therapeutics Inc.,Healthcare,1.5,medium
+ARCT,Arcturus Therapeutics Holdings Inc.,Healthcare,2.0,medium
+FLGT,Fulgent Genetics Inc.,Healthcare,0.5,low
+ARVN,Arvinas Inc.,Healthcare,1.0,low
+CRSP,CRISPR Therapeutics AG,Healthcare,2.0,medium
+BTAI,BioXcel Therapeutics Inc.,Healthcare,1.5,low
+EDIT,Editas Medicine Inc.,Healthcare,2.0,medium
+IBRX,ImmunityBio Inc.,Healthcare,3.0,medium
+OGN,Organon & Co.,Healthcare,2.5,medium
+TWST,Twist Bioscience Corporation,Healthcare,1.5,medium
+FATE,Fate Therapeutics Inc.,Healthcare,2.0,medium
+SAVA,Cassava Sciences Inc.,Healthcare,5.0,medium
+AXSM,Axsome Therapeutics Inc.,Healthcare,1.5,medium
+MRNA,Moderna Inc.,Healthcare,15.0,high
+BNTX,BioNTech SE,Healthcare,5.0,medium
+MU,Micron Technology Inc.,Technology,20.0,high
+QCOM,QUALCOMM Inc.,Technology,10.0,medium
+AMAT,Applied Materials Inc.,Technology,8.0,medium
+LRCX,Lam Research Corporation,Technology,1.5,medium
+KLAC,KLA Corporation,Technology,1.0,medium
+T,AT&T Inc.,Communication,40.0,high
+VZ,Verizon Communications Inc.,Communication,20.0,medium
+TMUS,T-Mobile US Inc.,Communication,5.0,medium
+CMCSA,Comcast Corporation,Communication,20.0,medium
+DIS,Walt Disney Company,Entertainment,10.0,high
+SPG,Simon Property Group Inc.,Real Estate,2.0,medium
+PLD,Prologis Inc.,Real Estate,3.0,medium
+AMT,American Tower Corporation,Real Estate,2.0,medium
+LIN,Linde plc,Materials,2.0,medium
+APD,Air Products and Chemicals Inc.,Materials,1.5,medium
+FCX,Freeport-McMoRan Inc.,Materials,15.0,medium
+F,Ford Motor Company,Automotive,60.0,high
+GM,General Motors Company,Automotive,20.0,medium
+ROKU,Roku Inc.,Technology,12.0,medium
+SQ,Block Inc.,Financials,10.0,medium
+PYPL,PayPal Holdings Inc.,Financials,12.0,medium

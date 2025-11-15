@@ -47,6 +47,7 @@ def csp_score(
     theta: float = 0.0,
     gamma: float = 0.0,
     vega: float = 0.0,
+    contrarian_signal: str = 'none',
     additional_factors: Dict[str, Any] = None
 ) -> float:
     """
@@ -54,6 +55,7 @@ def csp_score(
 
     Formula:
     Score = w1*IV_Rank + w2*ROI + w3*Margin + w4*Stability + w5*Theta + w6*Gamma + w7*Vega
+    Final Score = Score * Adjustments * Sentiment_Adjustment
 
     Args:
         iv_rank: IV Rank percentage (0-100)
@@ -63,6 +65,7 @@ def csp_score(
         theta: Theta (time decay per day, as absolute value)
         gamma: Gamma (delta change per $1 stock move)
         vega: Vega (price change per 1% IV change)
+        contrarian_signal: Sentiment-based contrarian signal ('long', 'short', 'none')
         additional_factors: Optional dict with extra scoring factors
 
     Returns:
@@ -160,6 +163,13 @@ def csp_score(
             # Light penalty for earnings 21-30 days out
             final_score *= 0.93
 
+    # Apply sentiment-based adjustment (v2.7)
+    # For CSPs, we want to sell puts when crowd is pessimistic (LONG signal)
+    if contrarian_signal == 'long':
+        final_score *= 1.10  # 10% boost - crowd fearful, good time to sell puts
+    elif contrarian_signal == 'short':
+        final_score *= 0.90  # 10% penalty - crowd greedy, avoid selling puts
+
     # Ensure score stays in bounds
     return max(0.0, min(1.0, final_score))
 
@@ -179,6 +189,7 @@ def score_csp_pick(pick: Dict[str, Any]) -> float:
     roi_30d = pick.get('roi_30d', 0.01)
     margin_of_safety = pick.get('margin_of_safety', 0.07)
     trend_stability = pick.get('trend_stability', 0.5)
+    contrarian_signal = pick.get('contrarian_signal', 'none')
 
     # Extract Greeks
     theta = pick.get('theta', 0.0)
@@ -214,6 +225,7 @@ def score_csp_pick(pick: Dict[str, Any]) -> float:
         theta=theta,
         gamma=gamma,
         vega=vega,
+        contrarian_signal=contrarian_signal,
         additional_factors=additional
     )
 

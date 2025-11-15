@@ -73,7 +73,8 @@ class RealOptionsFetcher:
 
             if response.status_code == 200:
                 data = response.json()
-                if data.get('status') == 'OK' and data.get('results'):
+                # Aggregates endpoint doesn't return 'status' field, just check for results
+                if data.get('results') and len(data.get('results', [])) > 0:
                     results = data['results']
 
                     # Extract OHLC arrays
@@ -470,6 +471,154 @@ class RealOptionsFetcher:
             logger.error(f"Error fetching dividend for {symbol}: {e}")
 
         return None
+
+    def get_putcall_ratio(self, symbol: str, expiry_range_days: int = 60) -> Optional[Dict]:
+        """
+        Calculate Put/Call ratio from options volume data.
+
+        The Put/Call ratio is a sentiment indicator measuring the volume of put options
+        traded relative to call options. Used to identify extremes in market sentiment:
+        - High ratio (>1.5): Excessive pessimism → Contrarian long opportunity
+        - Low ratio (<0.7): Excessive optimism → Contrarian short opportunity
+
+        Args:
+            symbol: Stock ticker symbol
+            expiry_range_days: Look ahead this many days for option expirations (default: 60)
+
+        Returns:
+            Dict with put/call metrics: {
+                'symbol': str,
+                'put_call_ratio_volume': float,  # Put volume / Call volume
+                'put_call_ratio_oi': float,       # Put OI / Call OI
+                'total_call_volume': int,
+                'total_put_volume': int,
+                'total_call_oi': int,
+                'total_put_oi': int,
+                'contracts_analyzed': int,
+                'sentiment_signal': str  # 'bullish', 'bearish', or 'neutral'
+            }
+            Returns None if insufficient data
+
+        Example:
+            >>> ratio_data = fetcher.get_putcall_ratio('AAPL', expiry_range_days=60)
+            >>> if ratio_data and ratio_data['put_call_ratio_volume'] > 1.5:
+            ...     print("Excessive pessimism - contrarian long signal")
+        """
+        today = date.today()
+        expiry_min = today + timedelta(days=1)  # Tomorrow
+        expiry_max = today + timedelta(days=expiry_range_days)
+
+        logger.info(f"Calculating put/call ratio for {symbol} (expiry range: {expiry_range_days} days)")
+
+        try:
+            # Fetch call contracts
+            call_contracts = self.list_options_contracts(
+                symbol=symbol,
+                contract_type="call",
+                expiry_gte=expiry_min.isoformat(),
+                expiry_lte=expiry_max.isoformat()
+            )
+
+            # Fetch put contracts
+            put_contracts = self.list_options_contracts(
+                symbol=symbol,
+                contract_type="put",
+                expiry_gte=expiry_min.isoformat(),
+                expiry_lte=expiry_max.isoformat()
+            )
+
+            if not call_contracts or not put_contracts:
+                logger.warning(f"Insufficient options data for {symbol} to calculate P/C ratio")
+                return None
+
+            # Get snapshots with volume and OI data for a sample of contracts
+            # To avoid excessive API calls, sample up to 50 contracts of each type
+            call_sample = call_contracts[:50]
+            put_sample = put_contracts[:50]
+
+            total_call_volume = 0
+            total_put_volume = 0
+            total_call_oi = 0
+            total_put_oi = 0
+            contracts_analyzed = 0
+
+            # Aggregate call volumes and OI
+            for contract in call_sample:
+                ticker = contract.get('ticker')
+                if not ticker:
+                    continue
+
+                # Try to get snapshot with volume/OI
+                snapshot = self.get_option_snapshot(symbol, ticker)
+                if snapshot and 'day' in snapshot:
+                    day_data = snapshot['day']
+                    volume = day_data.get('volume', 0)
+                    oi = snapshot.get('open_interest', 0)
+
+                    total_call_volume += volume
+                    total_call_oi += oi
+                    contracts_analyzed += 1
+
+                # Small delay to respect rate limits (not needed for Options Advanced, but safe)
+                time.sleep(0.05)
+
+            # Aggregate put volumes and OI
+            for contract in put_sample:
+                ticker = contract.get('ticker')
+                if not ticker:
+                    continue
+
+                snapshot = self.get_option_snapshot(symbol, ticker)
+                if snapshot and 'day' in snapshot:
+                    day_data = snapshot['day']
+                    volume = day_data.get('volume', 0)
+                    oi = snapshot.get('open_interest', 0)
+
+                    total_put_volume += volume
+                    total_put_oi += oi
+                    contracts_analyzed += 1
+
+                time.sleep(0.05)
+
+            # Calculate ratios
+            if total_call_volume == 0 or total_call_oi == 0:
+                logger.warning(f"Insufficient call volume/OI data for {symbol}")
+                return None
+
+            put_call_ratio_volume = total_put_volume / total_call_volume
+            put_call_ratio_oi = total_put_oi / total_call_oi
+
+            # Determine sentiment signal based on volume ratio
+            # From book: >1.5 = excessive pessimism, <0.7 = excessive optimism
+            if put_call_ratio_volume > 1.5:
+                sentiment_signal = 'bullish'  # Contrarian signal (too pessimistic = buy)
+            elif put_call_ratio_volume < 0.7:
+                sentiment_signal = 'bearish'  # Contrarian signal (too optimistic = sell)
+            else:
+                sentiment_signal = 'neutral'
+
+            result = {
+                'symbol': symbol,
+                'put_call_ratio_volume': put_call_ratio_volume,
+                'put_call_ratio_oi': put_call_ratio_oi,
+                'total_call_volume': total_call_volume,
+                'total_put_volume': total_put_volume,
+                'total_call_oi': total_call_oi,
+                'total_put_oi': total_put_oi,
+                'contracts_analyzed': contracts_analyzed,
+                'sentiment_signal': sentiment_signal
+            }
+
+            logger.info(
+                f"{symbol} P/C Ratio: {put_call_ratio_volume:.2f} (volume), "
+                f"{put_call_ratio_oi:.2f} (OI) - Signal: {sentiment_signal}"
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error calculating put/call ratio for {symbol}: {e}")
+            return None
 
     def find_cash_secured_put_candidates(self, symbol: str, stock_price: float,
                                         days_to_expiry_min: int = 30,

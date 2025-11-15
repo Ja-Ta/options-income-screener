@@ -385,6 +385,102 @@ def trend_stability(prices: List[float],
     return sum(components)
 
 
+def calculate_chaikin_money_flow(
+    highs: List[float],
+    lows: List[float],
+    closes: List[float],
+    volumes: List[float],
+    period: int = 20
+) -> Optional[float]:
+    """
+    Calculate Chaikin Money Flow (CMF) - measures buying/selling pressure.
+
+    CMF is a volume-weighted average of accumulation and distribution over a period.
+    Positive CMF indicates buying pressure (accumulation), negative indicates selling (distribution).
+
+    Formula:
+        MFM = ((Close - Low) - (High - Close)) / (High - Low)
+        MFV = MFM × Volume
+        CMF = sum(MFV over period) / sum(Volume over period)
+
+    Interpretation:
+        CMF > 0.1:  Strong accumulation (buying pressure)
+        CMF > 0:    Accumulation
+        CMF < 0:    Distribution
+        CMF < -0.1: Strong distribution (selling pressure)
+
+    Args:
+        highs: List of high prices (most recent last)
+        lows: List of low prices (most recent last)
+        closes: List of close prices (most recent last)
+        volumes: List of trading volumes (most recent last)
+        period: Look-back period (default: 20 days per book recommendation)
+
+    Returns:
+        CMF value between -1.0 and 1.0, or None if insufficient data
+
+    Example:
+        >>> cmf = calculate_chaikin_money_flow(highs, lows, closes, volumes, period=20)
+        >>> if cmf and cmf > 0.1:
+        ...     print("Strong accumulation - bullish signal")
+        >>> elif cmf and cmf < -0.1:
+        ...     print("Strong distribution - bearish signal")
+    """
+    # Validate inputs
+    if not all([highs, lows, closes, volumes]):
+        return None
+
+    if len(highs) < period or len(lows) < period or len(closes) < period or len(volumes) < period:
+        return None
+
+    if not (len(highs) == len(lows) == len(closes) == len(volumes)):
+        return None
+
+    # Get data for the period
+    period_highs = highs[-period:]
+    period_lows = lows[-period:]
+    period_closes = closes[-period:]
+    period_volumes = volumes[-period:]
+
+    money_flow_volumes = []
+    total_volume = 0
+
+    for i in range(period):
+        high = period_highs[i]
+        low = period_lows[i]
+        close = period_closes[i]
+        volume = period_volumes[i]
+
+        # Skip if invalid data
+        if high <= 0 or low <= 0 or close <= 0 or volume <= 0:
+            continue
+
+        if high == low:
+            # If high == low, MFM is undefined; treat as zero
+            money_flow_multiplier = 0.0
+        else:
+            # Calculate Money Flow Multiplier
+            money_flow_multiplier = ((close - low) - (high - close)) / (high - low)
+
+        # Calculate Money Flow Volume
+        money_flow_volume = money_flow_multiplier * volume
+
+        money_flow_volumes.append(money_flow_volume)
+        total_volume += volume
+
+    # Avoid division by zero
+    if total_volume == 0:
+        return None
+
+    # Calculate CMF
+    cmf = sum(money_flow_volumes) / total_volume
+
+    # Clamp to -1 to +1 range (should be within this naturally, but for safety)
+    cmf = max(-1.0, min(1.0, cmf))
+
+    return cmf
+
+
 def trend_consistency(prices: List[float], period: int = 20) -> float:
     """
     Measure trend consistency (how smooth the trend is).
@@ -420,7 +516,7 @@ def compute_technical_features(price_data: Dict[str, Any]) -> Dict[str, Any]:
 
     Args:
         price_data: Dict with price history and current values
-                   Should contain: prices, highs (optional), lows (optional), close
+                   Should contain: prices, highs (optional), lows (optional), close, volumes (optional)
 
     Returns:
         Dict with all computed technical features
@@ -428,6 +524,7 @@ def compute_technical_features(price_data: Dict[str, Any]) -> Dict[str, Any]:
     prices = price_data.get("prices", price_data.get("price_history", []))
     highs = price_data.get("highs", None)
     lows = price_data.get("lows", None)
+    volumes = price_data.get("volumes", None)
     close = price_data.get("close", prices[-1] if prices else 0)
 
     if not prices:
@@ -441,6 +538,11 @@ def compute_technical_features(price_data: Dict[str, Any]) -> Dict[str, Any]:
 
     # Compute RSI
     rsi_value = calculate_rsi(prices)
+
+    # Compute Chaikin Money Flow (if volume data available)
+    cmf_20 = None
+    if highs and lows and volumes:
+        cmf_20 = calculate_chaikin_money_flow(highs, lows, prices, volumes, period=20)
 
     # Compute enhanced trend strength (uses RSI and all SMAs)
     trend_str = trend_strength(
@@ -465,6 +567,7 @@ def compute_technical_features(price_data: Dict[str, Any]) -> Dict[str, Any]:
         **smas,
         **hvs,
         "rsi": rsi_value,
+        "cmf_20": cmf_20,  # NEW: Chaikin Money Flow for sentiment analysis
         "trend_strength": trend_str,
         "trend_stability": trend_stab,
         "in_uptrend": is_uptrend(smas["sma20"], smas["sma50"], smas["sma200"]),
