@@ -1,24 +1,25 @@
-# Next Session Prompt - Options Income Screener
-
-**Last Session**: 2025-11-15 (v2.9 - Dashboard UI Enhancements)
-**Ready For**: v2.10 or v3.0
+# Next Development Session - Start Prompt
+**Date Prepared:** November 15, 2025
+**Current Version:** v2.10 (Production Domain Deployment)
 
 ---
 
-## 📋 Copy-Paste This Prompt to Start Your Next Session
+## 🚀 Copy & Paste This Prompt to Start Your Next Session
 
 ```
 Hi Claude! I'm continuing development on the Options Income Screener project.
 
 CURRENT STATUS (as of 2025-11-15):
 
-✅ COMPLETED IN LAST SESSION (v2.9):
-- Tabbed Interface: Separate tabs for Covered Calls (CC) and Cash-Secured Puts (CSP)
-- Sortable Columns: All 14 table columns now sortable with visual indicators
-- Enhanced UX: Green arrows (▲▼) show sort direction, tabs have active states
-- API Updates: /api/picks/latest now supports strategy filtering
+✅ COMPLETED IN LAST SESSION (v2.10):
+- Domain & SSL Setup: Deployed to https://oiscreener.com with Let's Encrypt
+- nginx reverse proxy configured with automatic HTTP→HTTPS redirect
+- Updated all Telegram alerts and documentation to use new domain
+- Comprehensive README update with all features from v2.5-v2.10
+- All changes committed to git (ready to push)
 
 ✅ PREVIOUSLY COMPLETED:
+- v2.9: Tabbed interface (CC/CSP separation) and sortable columns
 - v2.8: Sentiment visualization in dashboard (badges, tooltips, filters)
 - v2.7: Sentiment analysis pipeline (contrarian signals, P/C ratio, CMF)
 - v2.6: Earnings proximity warnings with color-coded alerts
@@ -26,11 +27,12 @@ CURRENT STATUS (as of 2025-11-15):
 - v2.4 and earlier: Core screening, scoring, Telegram alerts, Claude summaries
 
 PRODUCTION ENVIRONMENT:
-- Node.js server: Available at http://0.0.0.0:3000
+- Domain: https://oiscreener.com (SSL enabled, auto-renews)
+- Node.js server: Running at http://0.0.0.0:3000 (proxied by nginx)
 - Database: /home/oisadm/development/options-income-screener/data/screener.db
-- Dashboard: Fully functional with tabs and sortable columns
+- Dashboard: Fully functional with tabs, sorting, and sentiment filters
 - Python: 3.12 in venv at python_app/venv
-- Git: main branch, all changes committed
+- Git: main branch (3 commits ahead of origin, ready to push)
 
 CURRENT DATA:
 - 42 picks from 2025-11-15 (21 CC + 21 CSP)
@@ -38,11 +40,12 @@ CURRENT DATA:
 - Full universe: 106 symbols tracked
 
 DOCUMENTATION AVAILABLE:
-- SESSION_v2.9.md - Latest session (tabs & sorting)
-- SESSION_v2.7-v2.8.md - Sentiment analysis session
+- SESSION_v2.10.md - Latest session (domain & SSL setup)
+- SESSION_v2.9.md - Tabbed interface & sorting
+- SESSION_v2.7-v2.8.md - Sentiment analysis
 - DASHBOARD_v2.8.md - Dashboard UI guide
 - TELEGRAM_v2.8.md - Telegram alert guide
-- DEPLOYMENT_v2.7.md - Sentiment deployment guide
+- README.md - Updated with all v2.5-v2.10 features
 - CLAUDE.md - Development framework & standards
 - options_income_screener_spec.md - Full system specification
 
@@ -52,7 +55,7 @@ Priority 1: Summary Cards & Dashboard Enhancements
 - Add metric cards at top showing: total picks, avg score, avg ROI, sentiment distribution
 - Add quick symbol search to filter by ticker
 - Add export to CSV functionality
-- Add preset filter combos ("Best Opportunities", "High Income", etc.)
+- Add preset filter combos ("Best Opportunities", "High Income", "Conservative", etc.)
 
 Priority 2: Advanced UI Features
 - Expandable rows to show full AI rationale
@@ -66,132 +69,56 @@ Priority 3: Analytics & Insights
 - Correlation analysis (sentiment vs outcomes)
 - Weekly summary reports
 
-Priority 4: Production Monitoring
-- Set up monitoring for sentiment accuracy
-- Track contrarian signal performance
-- Collect user feedback mechanisms
-- Monitor API response times
-
-Priority 5: Infrastructure
-- Add caching for frequently accessed data
-- Database optimization (indices on sentiment columns)
-- Consider PostgreSQL migration for better concurrency
-- Docker Compose for easier deployment
-
-
 Where are we in the codebase?
 - Working directory: /home/oisadm/development/options-income-screener/
-- Git branch: main (clean, all committed)
+- Git branch: main (3 commits ahead of origin - need to push)
 - Python environment: venv activated (Python 3.12)
-- Node.js server: Ready to start on port 3000
+- Node.js server: Running on port 3000 (proxied by nginx)
+- Live dashboard: https://oiscreener.com
 
-PLEASE HELP ME: [Describe what you want to work on]
+PLEASE HELP ME: [describe what you want to work on]
 ```
 
 ---
 
-## 🎯 Suggested Starting Points
+## 📋 Quick Reference
 
-### If You Want Quick Wins:
-"Let's add summary cards showing key metrics for the active tab (total picks, average score, average ROI, sentiment distribution)"
+### Recent Commits (Not Yet Pushed)
+1. `1cf533f` - docs: update README with latest features and status (v2.5-v2.10)
+2. `b53c0fe` - feat(domain): update all dashboard links to oiscreener.com
+3. Earlier commits from v2.9
 
-### If You Want Better Data Exploration:
-"Let's implement a quick symbol search box to filter the table by ticker"
+### Key Files Modified in Last Session
+- `python_app/src/pipelines/daily_job.py` (Telegram footer)
+- `README.md` (comprehensive update)
+- `API.md` (all curl examples)
+- `PROJECT_STATUS.md`, `EXECUTIVE_SUMMARY.md`, `MONITORING.md`, `MVP_ROADMAP.md`
+- 5 legacy screening scripts
 
-### If You Want Data Export:
-"Let's add CSV export functionality so I can download the filtered/sorted results"
+### Production URLs
+- **Dashboard:** https://oiscreener.com
+- **API:** https://oiscreener.com/api
+- **Health:** https://oiscreener.com/api/health
 
-### If You Want Preset Filters:
-"Let's create quick-select filter combos like 'Best Opportunities' (Score ≥ 0.7 + LONG sentiment)"
-
-### If You Want Analytics:
-"Let's set up historical tracking to see how sentiment signals perform over time"
-
-### If You Want Infrastructure:
-"Let's optimize the database with indices and add caching for better performance"
-
----
-
-## 📊 Current System Capabilities
-
-### What Works Now
-✅ Full pipeline: Data ingestion → Screening → Scoring → Sentiment → Dashboard
-✅ 106 symbols tracked from expanded universe
-✅ Covered Calls (CC) and Cash-Secured Puts (CSP) strategies
-✅ Sentiment analysis (contrarian signals, P/C ratio, CMF)
-✅ Web dashboard with tabs, filters, and sortable columns
-✅ Telegram alerts with sentiment context
-✅ AI-generated summaries via Claude API
-✅ Earnings tracking with proximity warnings
-✅ Real dividend data integration
-
-### What's Next
-🔄 Summary cards for quick insights
-🔄 Symbol search for fast ticker lookup
-🔄 CSV export for offline analysis
-🔄 Preset filter combinations
-🔄 Historical performance tracking
-🔄 Mobile optimization
-🔄 Dark mode
+### Common Next Tasks
+1. **Push to GitHub:** `git push origin main`
+2. **Start Node.js:** `cd node_ui && npm start`
+3. **Run Screening:** `./run_daily_screening.sh`
+4. **View Logs:** `tail -f data/logs/screener.log`
 
 ---
 
-## 🔧 Quick Reference
+## 🎯 Suggested First Steps for Next Session
 
-### Key Commands
-```bash
-# Start Node.js server
-cd node_ui && npm start
-
-# Run Python screening pipeline
-cd python_app
-source venv/bin/activate
-python src/pipelines/daily_screening.py
-
-# Check database
-sqlite3 data/screener.db "SELECT COUNT(*) FROM picks WHERE date='2025-11-15';"
-
-# Git status
-git status
-git log --oneline -5
-```
-
-### Key Files
-- **Dashboard**: `node_ui/public/index.html`
-- **API Routes**: `node_ui/src/routes/picks.js`
-- **Database Layer**: `node_ui/src/db.js`
-- **Screening**: `python_app/src/pipelines/daily_screening.py`
-- **Sentiment**: `python_app/src/features/sentiment.py`
-
-### Key URLs
-- Dashboard: http://localhost:3000
-- API Docs: http://localhost:3000/api
-- Health Check: http://localhost:3000/api/health
+1. **Push commits to GitHub**
+2. **Choose a Priority 1 enhancement** (e.g., summary cards)
+3. **Plan the implementation** using TodoWrite tool
+4. **Code and test** the feature
+5. **Update documentation** if needed
+6. **Commit and celebrate!** 🎉
 
 ---
 
-## 📈 Version History
-
-- **v2.9** (2025-11-15): Tabbed interface & sortable columns
-- **v2.8** (2025-11-15): Sentiment visualization in dashboard
-- **v2.7** (2025-11-15): Sentiment analysis pipeline
-- **v2.6** (2025-11-14): Earnings proximity warnings
-- **v2.5** (2025-11-14): Dividend integration
-- **v2.0-v2.4**: Core features (screening, scoring, alerts, summaries)
-
----
-
-## ✅ Pre-Session Checklist
-
-Before starting your next session, verify:
-- [ ] Git status is clean (all changes committed)
-- [ ] Database exists at `data/screener.db`
-- [ ] Python venv works: `source python_app/venv/bin/activate`
-- [ ] Node.js runs: `cd node_ui && npm start`
-- [ ] Dashboard accessible at http://localhost:3000
-
----
-
-**Ready to Continue!** 🚀
-
-Copy the prompt above and paste it to start your next development session where we left off.
+**Last Updated:** November 15, 2025
+**Session:** v2.10 - Domain & SSL Setup
+**Status:** ✅ Ready for next development session
